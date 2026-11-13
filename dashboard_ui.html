@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JobPilot</title>
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --sunk:#eef1f5; --ink:#141922; --muted:#5d6676; --line:#dde2e9;
+  --accent:#2d5be3; --accent-ink:#ffffff; --accent-soft:#e7edfd;
+  --good:#11845a; --good-soft:#e2f4ec; --warn:#a86a0c; --warn-soft:#fbf0dc; --bad:#c23b3b; --bad-soft:#fbe7e7;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  color-scheme:dark;
+  --bg:#0d1117; --surface:#151a22; --sunk:#1b212b; --ink:#e6e9ef; --muted:#939cab; --line:#272e3a;
+  --accent:#7aa2ff; --accent-ink:#0b1430; --accent-soft:#1c2744;
+  --good:#46c08d; --good-soft:#132a22; --warn:#e3a94b; --warn-soft:#2c2414; --bad:#f07b7b; --bad-soft:#321b1d;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
+button{font:inherit;cursor:pointer}
+a{color:var(--accent)}
+code{font:12.5px var(--mono);background:var(--sunk);padding:1px 5px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:0 120px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.top{max-width:1120px;margin:0 auto;padding:14px 20px 0;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.brand{font-weight:750;font-size:18px;letter-spacing:-.01em;margin-right:auto}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+button.pill:hover{border-color:var(--accent)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--good)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:550;text-decoration:none;display:inline-block}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,.tab:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.small{padding:3px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:default}
+nav{max-width:1120px;margin:0 auto;padding:10px 20px 0;display:flex;gap:4px;overflow-x:auto}
+.tab{border:0;background:none;color:var(--muted);padding:8px 12px 10px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.count{font-size:11px;background:var(--sunk);color:var(--muted);border-radius:999px;padding:1px 7px;margin-left:5px}
+.tab.on .count{background:var(--accent-soft);color:var(--accent)}
+.banner{margin:16px 0 0;padding:10px 14px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:13px}
+.banner.bad{background:var(--bad-soft);color:var(--bad)}
+section{display:none;padding-top:20px} section.on{display:block}
+h2{font-size:15px;margin:22px 0 8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h2 .hint{font-weight:400;color:var(--muted);font-size:13px}
+h3{font-size:14px;margin:0 0 6px}
+.funnel{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:var(--muted);padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.funnel b{color:var(--ink);font-size:18px;font-variant-numeric:tabular-nums;margin-right:4px}
+.funnel .arrow{opacity:.5}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-top:10px}
+.card.stale{border-left:3px solid var(--warn)} .card.old{border-left:3px solid var(--bad)}
+.head{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-start;padding:14px 16px}
+.who{flex:1;min-width:240px}
+.who b{font-size:15px} .who .title{color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted);font-size:12px;margin-top:4px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tag{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.tag.good{background:var(--good-soft);color:var(--good)} .tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)}
+.tag.mine{background:var(--accent-soft);color:var(--accent)}
+.row-actions{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 14px}
+.details{border-top:1px solid var(--line);padding:12px 16px 16px;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px}
+.details[hidden]{display:none}
+.shot img{width:100%;border:1px solid var(--line);border-radius:6px;display:block;cursor:zoom-in}
+.qa{display:grid;gap:2px}
+.q{display:grid;grid-template-columns:minmax(140px,34%) 1fr auto;gap:10px;padding:8px;border-radius:6px;align-items:start}
+.q:nth-child(odd){background:var(--sunk)}
+.q.guess{background:var(--warn-soft)}
+.q .lab{color:var(--muted);font-size:12.5px}
+.q .ans{white-space:pre-wrap;word-break:break-word}
+.q .note{color:var(--muted);font-size:12px;margin-top:3px}
+.q.guess .note{color:var(--warn)}
+.mynote{white-space:pre-wrap;font-size:13px;background:var(--accent-soft);border-radius:6px;padding:8px 10px;margin:0 16px 12px}
+textarea,input[type=text],input[type=url],input[type=number],select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+textarea{width:100%;min-height:70px}
+textarea.code{font:12.5px/1.5 var(--mono);min-height:420px}
+input[type=number]{width:90px}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
+.li{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .who{min-width:220px}
+.reason{color:var(--muted);font-size:12.5px;margin-top:2px}
+.missing{color:var(--bad);font-size:12.5px;margin-top:2px}
+.empty{color:var(--muted);padding:26px;text-align:center;background:var(--surface);border:1px dashed var(--line);border-radius:10px;margin-top:10px}
+.note-row{display:flex;gap:10px;align-items:flex-start;padding:9px 16px;border-top:1px solid var(--line)}
+.note-row:first-child{border-top:0}
+.note-row span:not(.tag){flex:1}
+.mem-ans{display:grid;grid-template-columns:minmax(160px,38%) 1fr;gap:10px;padding:9px 16px;border-top:1px solid var(--line)}
+.mem-ans:first-child{border-top:0}
+.variant{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:4px}
+.variant .co{color:var(--muted);font-size:12px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+input[type=search]{flex:1;min-width:200px;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-top:10px}
+th,td{text-align:left;padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+th{border-top:0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--sunk)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.deny td{background:var(--bad-soft)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:12px;margin-top:12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.panel p{margin:4px 0 10px;color:var(--muted);font-size:13px}
+.run-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.run-row:first-of-type{border-top:0}
+.run-row .what{flex:1;min-width:200px;font-size:13px}
+.run-row .what small{display:block;color:var(--muted);font-size:12px}
+.form{display:grid;gap:8px}
+.form label{display:grid;gap:3px;font-size:12.5px;color:var(--muted)}
+.form .inline{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:12.5px}
+.bars{display:grid;gap:4px;margin-top:8px}
+.barrow{display:grid;grid-template-columns:90px 1fr 110px;gap:10px;align-items:center;font-size:12.5px}
+.bar{height:12px;border-radius:3px;background:var(--accent);min-width:2px}
+.bar.over{background:var(--warn)}
+pre.log{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.45 var(--mono);background:var(--sunk);border-radius:8px;padding:10px 12px;max-height:60vh;overflow:auto}
+.bulkbar{position:sticky;top:104px;z-index:4;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:8px 12px;margin-top:10px}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:0;width:min(980px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgb(0 0 0 / .45)}
+.dlg-head{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.dlg-head b{flex:1}
+.dlg-body{padding:14px 16px 18px}
+.zoom img{width:100%;cursor:zoom-in;border:1px solid var(--line);border-radius:6px}
+.zoom.big img{width:auto;max-width:none;cursor:zoom-out}
+.zoom{overflow:auto}
+#dock{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;width:min(380px,calc(100vw - 32px));z-index:10}
+.toast{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgb(0 0 0 / .12);font-size:13px}
+.toast b{display:block} .toast pre{margin:4px 0 0;white-space:pre-wrap;font:12px/1.4 var(--mono);color:var(--muted)}
+.toast.err{border-color:var(--bad)} .toast.ok{border-color:var(--good)}
+.toast .tools{margin-top:6px}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin-right:6px;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+@media (max-width:760px){.details{grid-template-columns:1fr}.q{grid-template-columns:1fr}.mem-ans{grid-template-columns:1fr}.barrow{grid-template-columns:70px 1fr 80px}.bulkbar{top:0}}
+.ro .live-only{display:none!important}
+</style></head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand">JobPilot</div>
+    <div class="pills" id="health"></div>
+    <div class="actions live-only">
+      <button class="btn" data-act="discover" type="button">Find jobs</button>
+      <button class="btn" data-act="fill-new" type="button">Fill new jobs</button>
+      <button class="btn" data-act="check" type="button">Check postings</button>
+      <button class="btn" id="b-notify" type="button">Enable notifications</button>
+    </div>
+  </div>
+  <nav id="tabs" aria-label="Sections"></nav>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="ro-banner" hidden>Read-only snapshot. The live dashboard (all buttons, notifications) is at http://localhost:8765 — it runs in the background.</div>
+  <div class="banner bad" id="down-banner" hidden></div>
+  <section id="s-today"></section>
+  <section id="s-needs"></section>
+  <section id="s-applied"></section>
+  <section id="s-all"></section>
+  <section id="s-memory"></section>
+  <section id="s-control"></section>
+  <section id="s-knowledge"></section>
+  <section id="s-insights"></section>
+</div>
+<dialog id="dlg" aria-labelledby="dlg-title"><div class="dlg-head"><b id="dlg-title"></b><button class="btn small" data-act="dlg-close" type="button">Close</button></div><div class="dlg-body" id="dlg-body"></div></dialog>
+<div id="dock" aria-live="polite"></div>
+
+<script>
+const EMBED = __STATE__;
+const LIVE = !EMBED;
+let S = EMBED, PREV = null, TAB = (location.hash || '#today').slice(1), DOWN = false;
+const open = new Set(), editing = new Map(), SEL = new Set();
+const FILE = {name: 'profile', text: null, orig: null};
+const DLG = {kind: '', id: null};
+if (!LIVE) document.body.classList.add('ro');
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const days = iso => iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : null;
+const ago = iso => { if (!iso) return ''; const m = Math.round((Date.now() - new Date(iso)) / 6e4);
+  return m < 60 ? `${Math.max(m,0)}m ago` : m < 1440 ? `${Math.round(m/60)}h ago` : `${Math.round(m/1440)}d ago`; };
+const dur = (a, b) => { if (!a) return ''; const s = Math.round(((b ? new Date(b) : Date.now()) - new Date(a)) / 1e3);
+  return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s/60)}m ${s%60}s` : `${Math.floor(s/3600)}h ${Math.floor(s%3600/60)}m`; };
+const usd = n => '$' + (n || 0).toFixed(2);
+const by = st => S.jobs.filter(j => st.includes(j.status));
+const DONE = ['applied','replied','interview','offer','rejected'];
+const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '–';
+
+// ── data + actions ─────────────────────────────────────────────────────────
+function typing() {   // don't redraw under the cursor
+  const a = document.activeElement;
+  return a && a.closest('.wrap') && a.matches('textarea, select, input:not([type=checkbox]):not([type=file])');
+}
+async function refresh() {
+  if (!LIVE) return render();
+  try { const r = await fetch('/api/state'); const next = await r.json(); PREV = S; S = next; DOWN = false; notifyDiff();
+        if (!typing()) render(); }
+  catch { if (!DOWN) { DOWN = true; render(); } }
+  clearTimeout(refresh.t);
+  refresh.t = setTimeout(refresh, DOWN ? 5000 : S && S.tasks.some(t => t.status === 'running') ? 4000 : 30000);
+}
+async function api(path, body = {}, raw = null) {
+  const r = await fetch('/api/' + path, {method:'POST', body: raw || JSON.stringify(body),
+    headers: {'Content-Type': raw ? 'application/pdf' : 'application/json', 'X-JobPilot': '1'}});
+  const out = await r.json().catch(() => ({error:'Server error'}));
+  if (out.error) toast('Not done', out.error, 'err'); else if (out.message) toast(out.message, '', 'ok');
+  if (out.task && !out.message) toast('Started: ' + out.task.label, 'Watch it bottom right — Log shows live output, Cancel stops it.', 'ok');
+  await refresh();
+  return out;
+}
+function estimate(n) {
+  const u = S.usage, c = (u.avg_cost || 1.2) * n, t = (u.avg_turns || 20) * n;
+  return `${n} agent run${n === 1 ? '' : 's'} · about ${t} turns · ≈ ${usd(c)} API-equivalent.\n` +
+    `Your Claude subscription isn't billed per token, but this counts toward your plan's usage limits.` +
+    (S.settings.daily_cap_usd ? `\nDaily cap ${usd(S.settings.daily_cap_usd)} — used today ${usd(u.today)}; filling pauses at the cap.` : '');
+}
+const ask = (what, n) => confirm(`${what}\n\n${estimate(n)}\n\nContinue?`);
+
+// ── notifications (browser) + in-page toasts ───────────────────────────────
+function toast(title, body = '', kind = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.innerHTML = `<b>${esc(title)}</b>${body ? `<pre>${esc(body)}</pre>` : ''}`;
+  $('#dock').appendChild(el);
+  setTimeout(() => el.remove(), kind === 'err' ? 12000 : 7000);
+}
+function notify(title, body, tab) {
+  toast(title, body);
+  if ('Notification' in window && Notification.permission === 'granted' && (document.hidden || !document.hasFocus())) {
+    const n = new Notification(title, {body, tag: title + body});
+    n.onclick = () => { window.focus(); if (tab) go(tab); n.close(); };
+  }
+}
+function notifyDiff() {
+  if (!PREV) return remind();
+  const was = Object.fromEntries(PREV.jobs.map(j => [j.id, j.status]));
+  for (const t of S.tasks) {
+    const p = PREV.tasks.find(x => x.id === t.id);
+    if (p && p.status === 'running' && t.status !== 'running')
+      notify(`${{done:'Finished',failed:'Failed',cancelled:'Cancelled'}[t.status] || t.status}: ${t.label}`, (t.result || '').split('\n').slice(-3).join('\n'));
+  }
+  const fresh = S.jobs.filter(j => !(j.id in was));
+  if (fresh.length) notify(`${fresh.length} new job${fresh.length > 1 ? 's' : ''} found`, fresh.slice(0, 3).map(j => j.company).join(', '), 'all');
+  for (const j of S.jobs) {
+    if (was[j.id] && was[j.id] !== 'closed' && j.status === 'closed') notify('Posting closed', `${j.company} — ${j.title}`, 'all');
+    if (['new','needs-you','form-ready'].includes(was[j.id]) && j.status === 'ready-to-submit') notify('Ready to submit', `${j.company} — ${j.title}`, 'today');
+    if (was[j.id] && was[j.id] !== 'applied' && j.status === 'applied' && j.events.auto_detected)
+      notify('Submission detected', `${j.company} — marked submitted (Undo in Applied if wrong)`, 'applied');
+  }
+  if (PREV.health.chrome && S.health.chrome === false) notify("Agent Chrome stopped", 'Start it in Control → Agent Chrome', 'control');
+  if ((PREV.health.login !== false && S.health.login === false) || (!PREV.health.login_error && S.health.login_error))
+    notify('Claude login expired', 'Control → Claude login → Sign in', 'control');
+  const pend = n => Object.values(n.memory.pending).flat().length;
+  if (pend(S) > pend(PREV)) notify('New platform notes to review', `${pend(S)} waiting`, 'memory');
+}
+function remind() {                       // once a day: forms that have waited 2+ days
+  const old = by(['ready-to-submit']).filter(j => days(j.filled_at) >= 2).sort((a,b) => (a.filled_at > b.filled_at) - (a.filled_at < b.filled_at));
+  let last = ''; try { last = localStorage.getItem('jp-reminded') || ''; } catch {}
+  if (old.length && last !== S.today) {
+    notify(`${old.length} form${old.length > 1 ? 's' : ''} waiting for you`, `Oldest: ${old[0].company}, filled ${days(old[0].filled_at)}d ago — postings close fast`, 'today');
+    try { localStorage.setItem('jp-reminded', S.today); } catch {}
+  }
+}
+function notifyButton() {
+  const b = $('#b-notify');
+  if (!('Notification' in window)) { b.hidden = true; return; }
+  const p = Notification.permission;
+  b.textContent = p === 'granted' ? 'Notifications on' : p === 'denied' ? 'Notifications blocked' : 'Enable notifications';
+  b.disabled = p !== 'default';
+}
+
+// ── dialog: timeline, screenshot, task log, notes ──────────────────────────
+function showDialog(title, html, kind = '', id = null) {
+  $('#dlg-title').textContent = title; $('#dlg-body').innerHTML = html;
+  DLG.kind = kind; DLG.id = id;
+  if (!$('#dlg').open) $('#dlg').showModal();
+}
+$('#dlg').addEventListener('close', () => { DLG.kind = ''; DLG.id = null; });
+async function openTaskLog(id) {
+  const t = S.tasks.find(x => x.id === id);
+  showDialog(t ? t.label : 'Task', '<pre class="log">loading…</pre>', 'task', id);
+  pollTask();
+}
+async function pollTask() {
+  if (DLG.kind !== 'task') return;
+  const r = await fetch('/api/task/' + DLG.id).then(r => r.json()).catch(() => null);
+  if (!r || DLG.kind !== 'task') return;
+  const t = r.task, pre = $('#dlg-body pre'), atEnd = !pre || pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  $('#dlg-title').textContent = `${t.label} · ${t.status}${t.status === 'running' ? ' · ' + dur(t.started) : ''}`;
+  $('#dlg-body').innerHTML = `<pre class="log">${esc(r.log || '(no output yet)')}</pre>
+    ${t.status === 'running' && t.pid ? `<div class="tools"><button class="btn small danger" data-act="cancel" data-t="${t.id}" type="button">Cancel task</button></div>` : ''}`;
+  const p = $('#dlg-body pre'); if (atEnd) p.scrollTop = p.scrollHeight;
+  if (t.status === 'running') setTimeout(pollTask, 2000);
+}
+async function openTimeline(id) {
+  const j = S.jobs.find(x => x.id === id);
+  showDialog(`${j.company} — what the agent did`, 'loading…', 'timeline', id);
+  const r = await fetch('/api/log/' + id).then(r => r.json());
+  const denials = r.steps.filter(s => s.deny).length;
+  $('#dlg-body').innerHTML = `<p class="reason">${r.steps.length} steps${j.turns ? ` · ${j.turns} turns` : ''}${j.cost ? ` · ${usd(j.cost)}` : ''}${denials ? ` · <b style="color:var(--bad)">${denials} blocked by the guard</b>` : ''}${j.filled_at ? ` · ran ${esc(ago(j.filled_at))}` : ''}</p>
+    ${r.shot ? `<div class="zoom" style="max-height:340px;margin-bottom:12px"><img src="${esc(r.shot)}" alt="Screenshot of the filled form" data-act="zoom"></div>` : ''}
+    <div class="tbl"><table><thead><tr><th class="num">t</th><th>Tool</th><th>What</th></tr></thead><tbody>
+    ${r.steps.map(s => `<tr class="${s.deny ? 'deny' : ''}"><td class="num">${s.s >= 60 ? Math.floor(s.s/60) + 'm' + String(s.s%60).padStart(2,'0') : s.s + 's'}</td>
+      <td>${s.deny ? '<b>BLOCKED</b> ' : ''}${esc(s.tool)}</td><td>${esc(s.what)}${s.out ? `<div class="reason">${esc(s.out)}</div>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function openShot(src, title) {
+  showDialog(title, `<p class="reason">Click the image to zoom.</p><div class="zoom"><img src="${esc(src)}" alt="${esc(title)}" data-act="zoom"></div>`);
+}
+function openNote(id) {
+  const j = S.jobs.find(x => x.id === id);
+  showDialog(`${j.company} — notes`, `<div class="form">
+    <label>Note (only for you — the agent never sees it)<textarea id="n-text" rows="6">${esc(j.note)}</textarea></label>
+    <label>Tags, comma-separated<input type="text" id="n-tags" value="${esc(j.tags.join(', '))}" placeholder="dream job, referral, follow up"></label>
+    <div class="tools"><button class="btn primary" data-act="note-save" data-id="${id}" type="button">Save</button></div></div>`, 'note', id);
+  $('#n-text').focus();
+}
+
+// ── rendering ──────────────────────────────────────────────────────────────
+function go(t) { TAB = t; location.hash = t; render(); }
+function render() {
+  if (!S) return;
+  const ready = by(['ready-to-submit']), needs = by(['needs-you','form-ready']);
+  const pend = Object.values(S.memory.pending).flat().length;
+  const running = S.tasks.filter(t => t.status === 'running').length;
+  document.title = ready.length ? `(${ready.length}) JobPilot` : 'JobPilot';
+  $('#ro-banner').hidden = LIVE;
+  $('#down-banner').hidden = !DOWN;
+  $('#down-banner').textContent = 'The dashboard server is not responding — it restarts by itself within a few seconds. If this stays, run: launchctl kickstart -k gui/$(id -u)/com.jobpilot.dashboard';
+  const tabs = [['today','Today',ready.length],['needs','Needs you',needs.length],['applied','Applied',by(DONE).length],
+    ['all','All jobs',S.jobs.length],['memory','Memory',pend ? `${pend} new` : ''],
+    ...(LIVE ? [['control','Control',running ? `${running} running` : ''],['knowledge','Knowledge','']] : []),['insights','Insights','']];
+  if (!tabs.some(t => t[0] === TAB)) TAB = 'today';
+  $('#tabs').innerHTML = tabs.map(([id,l,n]) => `<button class="tab ${TAB===id?'on':''}" data-go="${id}" type="button">${l}${n!==''?`<span class="count">${n}</span>`:''}</button>`).join('');
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('on', s.id === 's-' + TAB));
+  health(); notifyButton();
+  ({today, needs:needsYou, applied:appliedTab, memory:memoryTab, all:allJobs, control, knowledge, insights}[TAB] || today)();
+  dock();
+}
+function health() {
+  const h = S.health;
+  const pill = (state, text, tab) => `<button class="pill" type="button" data-go="${tab}"><span class="dot ${state}"></span>${text}</button>`;
+  const bm = {visible: ['ok','Agent Chrome up'], invisible: ['warn','Agent Chrome: daily run'], stopped: ['bad','Agent Chrome off']}[h.browser] || ['','?'];
+  const d = S.daily || {};
+  $('#health').innerHTML = !LIVE ? `<span class="pill"><span class="dot"></span>snapshot · ${esc(S.today)}</span>` : [
+    pill(bm[0], bm[1], 'control'),
+    pill(h.login === false || h.login_error ? 'bad' : h.login ? 'ok' : 'warn', h.login === false || h.login_error ? 'Claude login expired' : h.login ? 'Claude login ok' : 'Claude login ?', 'control'),
+    pill(S.settings.daily_cap_usd && S.usage.today >= S.settings.daily_cap_usd ? 'warn' : '', `${usd(S.usage.today)} today · ${usd(h.week_cost)} week`, 'insights'),
+    pill(d.on ? (d.last_date === S.today ? 'ok' : '') : 'warn', d.on ? (d.last_date === S.today ? 'daily run done' : 'daily run waiting') : 'daily run off', 'control'),
+  ].join('');
+}
+function postingTag(j) {
+  const p = j.posting || {};
+  if (p.status === 'live') return `<span class="tag good" title="checked ${esc(ago(p.checked))}">posting live</span>`;
+  if (p.status === 'closed') return `<span class="tag bad">posting closed</span>`;
+  return `<span class="tag" title="Greenhouse, Ashby and Lever can be checked">${p.status === 'unknown' ? "can't check posting" : 'posting not checked'}</span>`;
+}
+const myTags = j => j.tags.map(t => `<span class="tag mine">${esc(t)}</span>`).join('');
+function today() {
+  const f = S.funnel, list = by(['ready-to-submit']).sort((a,b) => (a.filled_at > b.filled_at) - (a.filled_at < b.filled_at));
+  $('#s-today').innerHTML = `
+    <div class="funnel" aria-label="Funnel"><span><b>${f.found}</b>found</span><span class="arrow">→</span>
+      <span><b>${f.filled}</b>filled</span><span class="arrow">→</span><span><b>${f.submitted}</b>submitted</span>
+      <span class="arrow">→</span><span><b>${f.replies}</b>heard back</span><span class="arrow">→</span><span><b>${f.interviews}</b>interviews</span></div>
+    <h2>Ready to submit <span class="hint">oldest first — postings close within days${S.settings.auto_detect ? ' · submitting in the agent Chrome is detected automatically' : ''}</span></h2>
+    ${list.length ? list.map(card).join('') : `<div class="empty">Nothing waiting. Fill new jobs, or retry the ones in Needs you.</div>`}`;
+}
+function card(j) {
+  const d = days(j.filled_at), isOpen = open.has(j.id);
+  return `<article class="card ${d >= 5 ? 'old' : d >= 2 ? 'stale' : ''}">
+    <div class="head"><div class="who"><b>${esc(j.company)}</b> <span class="title">· ${esc(j.title)}</span>
+      <div class="meta">${j.ats ? `<span>${esc(j.ats)}</span>` : ''}${j.resume ? `<span>resume: ${esc(j.track || j.resume)}</span>` : ''}
+        <span>${j.recipe ? `recipe: ${j.recipe} fields` : 'no recipe'}</span><span>${j.tab ? 'tab open' : 'tab closed'}</span>
+        ${j.cost ? `<span>${usd(j.cost)}</span>` : ''}</div></div>
+      <div class="tags">${myTags(j)}${postingTag(j)}<span class="tag ${d >= 5 ? 'bad' : d >= 2 ? 'warn' : ''}">filled ${d === null ? '?' : d === 0 ? 'today' : d + 'd ago'}</span>
+        ${j.guesses ? `<span class="tag warn">${j.guesses} guess${j.guesses > 1 ? 'es' : ''} to check</span>` : ''}</div></div>
+    ${j.note ? `<div class="mynote">${esc(j.note)}</div>` : ''}
+    <div class="row-actions">
+      <button class="btn primary live-only" data-act="open" data-id="${j.id}" type="button">${j.tab ? 'Show form' : j.recipe ? 'Open form' : 'Open listing'}</button>
+      <button class="btn good live-only" data-act="applied" data-id="${j.id}" type="button">I submitted</button>
+      <button class="btn live-only" data-act="skipped" data-id="${j.id}" type="button">Skip</button>
+      <button class="btn quiet" data-act="toggle" data-id="${j.id}" type="button" aria-expanded="${isOpen}">${isOpen ? 'Hide' : 'Review'} ${j.qa.length} answers</button>
+      ${j.log ? `<button class="btn quiet live-only" data-act="timeline" data-id="${j.id}" type="button">Agent timeline</button>` : ''}
+      <button class="btn quiet live-only" data-act="note" data-id="${j.id}" type="button">${j.note || j.tags.length ? 'Edit note' : 'Add note'}</button>
+      <a class="btn quiet" href="${esc(j.url)}" target="_blank" rel="noopener">Listing ↗</a></div>
+    <div class="details" ${isOpen ? '' : 'hidden'}>
+      <div class="qa">${j.qa.map((x,i) => qrow(j,x,i)).join('') || '<div class="reason">No answers recorded.</div>'}</div>
+      <div>${j.shot ? `<div class="shot"><img src="${esc(j.shot)}" alt="Screenshot of the filled ${esc(j.company)} form" data-act="shot" data-id="${j.id}"></div>` : ''}</div>
+    </div></article>`;
+}
+function qrow(j, x, i) {
+  const k = j.id + ':' + i;
+  if (editing.has(k)) return `<div class="q ${x.guess ? 'guess' : ''}"><div class="lab">${esc(x.q)}</div>
+    <div><textarea id="ta-${k.replace(':','-')}" data-k="${esc(k)}" aria-label="Answer for ${esc(x.q)}">${esc(editing.get(k))}</textarea>
+      <div class="tools"><button class="btn small primary" data-act="save" data-id="${j.id}" data-i="${i}" type="button">Save</button>
+      <button class="btn small quiet" data-act="cancel-edit" data-id="${j.id}" data-i="${i}" type="button">Cancel</button></div></div><div></div></div>`;
+  return `<div class="q ${x.guess ? 'guess' : ''}"><div class="lab">${esc(x.q)}${x.guess ? ' · <b style="color:var(--warn)">guess</b>' : ''}</div>
+    <div><div class="ans">${esc(x.a)}</div>${x.note ? `<div class="note">${esc(x.note)}</div>` : ''}</div>
+    <div class="tools">${LIVE && j.editable ? `<button class="btn small quiet" data-act="edit" data-id="${j.id}" data-i="${i}" type="button">Edit</button>` : ''}
+      ${LIVE && j.tab && x.note === 'edited by you' ? `<button class="btn small" data-act="push" data-id="${j.id}" data-i="${i}" type="button">Type into form</button>` : ''}</div></div>`;
+}
+function needsYou() {
+  const groups = {};
+  for (const j of by(['needs-you','form-ready'])) (groups[j.cat] ||= []).push(j);
+  const order = Object.keys(S.cats).filter(c => groups[c]);
+  $('#s-needs').innerHTML = order.length ? order.map(c => {
+    const js = groups[c], retry = !['captcha','email_apply'].includes(c);
+    return `<h2>${esc(S.cats[c].title)} <span class="count">${js.length}</span><span class="hint">${esc(S.cats[c].hint)}</span>
+      ${retry ? `<button class="btn small live-only" data-act="retry-all" data-ids="${js.map(j => j.id).join(',')}" type="button">Retry all ${js.length}</button>` : ''}</h2>
+      <div class="list">${js.map(j => `<div class="li"><div class="who"><b>${esc(j.company)}</b> · ${esc(j.title)} ${myTags(j)}
+        <div class="reason">${esc(j.reason || 'no reason recorded')}</div>
+        ${j.unfilled.length ? `<div class="missing">Missing: ${j.unfilled.map(esc).join(' · ')}</div>` : ''}
+        ${j.email ? emailHelper(j) : ''}</div>
+        <div class="tags">${postingTag(j)}</div>
+        ${c === 'login' || c === 'account_required' ? `<button class="btn small live-only" data-act="site" data-id="${j.id}" type="button">Open site to log in</button>` : ''}
+        ${retry ? `<button class="btn small live-only" data-act="retry" data-id="${j.id}" type="button">Retry</button>` : ''}
+        ${j.log ? `<button class="btn small quiet live-only" data-act="timeline" data-id="${j.id}" type="button">Timeline</button>` : ''}
+        <button class="btn small quiet live-only" data-act="skipped" data-id="${j.id}" type="button">Skip</button>
+        <a class="btn small quiet" href="${esc(j.url)}" target="_blank" rel="noopener">Listing ↗</a></div>`).join('')}</div>`;
+  }).join('') : `<div class="empty">Nothing needs you.</div>`;
+}
+function emailHelper(j) {
+  const subject = (j.draft || '').split('\n')[0].replace(/^Subject: /, '');
+  return `<div class="reason">Send to <b>${esc(j.email)}</b></div>
+    <div class="tools live-only">
+      <button class="btn small" data-act="copy" data-text="${esc(j.email)}" type="button">Copy address</button>
+      <button class="btn small" data-act="copy" data-text="${esc(j.draft || '')}" type="button">Copy draft</button>
+      <button class="btn small" data-act="reveal" data-id="${j.id}" type="button">Show resume in Finder</button>
+      <a class="btn small" href="mailto:${encodeURIComponent(j.email)}?subject=${encodeURIComponent(subject)}">Open in Mail</a>
+      <button class="btn small good" data-act="applied" data-id="${j.id}" type="button">I sent it</button></div>`;
+}
+function appliedTab() {
+  const out = j => ['replied','interview','offer','rejected'].map(s => j.status === s ? '' :
+    `<button class="btn small quiet live-only" data-act="${s}" data-id="${j.id}" type="button">${{replied:'Reply',interview:'Interview',offer:'Offer',rejected:'Rejected'}[s]}</button>`).join('');
+  const row = (j, extra) => `<div class="li"><div class="who"><b>${esc(j.company)}</b> · ${esc(j.title)} ${myTags(j)}
+    <div class="reason">${Object.entries(j.events).map(([k,v]) => `${k.replace('_',' ')} ${esc(v.slice(0,10))}`).join(' · ')}${j.track ? ` · resume ${esc(j.track)}` : ''}</div></div>
+    ${extra}${out(j)}<button class="btn small quiet live-only" data-act="note" data-id="${j.id}" type="button">Note</button>
+    <button class="btn small quiet live-only" data-act="ready-to-submit" data-id="${j.id}" type="button">Undo</button></div>`;
+  const grp = (title, st, empty, tag) => { const js = by(st);
+    return `<h2>${title} <span class="count">${js.length}</span></h2>${js.length ? `<div class="list">${js.map(j => row(j, tag ? tag(j) : '')).join('')}</div>` : empty ? `<div class="empty">${empty}</div>` : ''}`; };
+  $('#s-applied').innerHTML =
+    grp('Interviews & offers', ['interview','offer'], '', j => `<span class="tag good">${j.status}</span>`) +
+    grp('Replies', ['replied'], 'No replies yet.') +
+    grp('Submitted, waiting', ['applied'], 'Mark jobs as submitted from Today (or submit in the agent Chrome — it is detected).',
+        j => j.events.auto_detected ? '<span class="tag">auto-detected</span>' : '') +
+    grp('Rejected', ['rejected'], '') + grp('Skipped', ['skipped'], '');
+}
+function memoryTab() {
+  const pend = Object.entries(S.memory.pending).flatMap(([a, ls]) => ls.map(l => [a, l]));
+  const plat = Object.entries(S.memory.platforms).filter(([, ls]) => ls.length);
+  const keys = S.memory.answers.map(a => [a.key, a.label]);
+  $('#s-memory').innerHTML = `
+    <h2>New platform notes <span class="count">${pend.length}</span><span class="hint">written by the agent after a run — approve the ones that are true for every company on that platform</span></h2>
+    ${pend.length ? `<div class="list">${pend.map(([a,l]) => `<div class="note-row"><span class="tag">${esc(a)}</span><span>${esc(l)}</span>
+      <button class="btn small good live-only" data-act="lesson" data-do="approve" data-ats="${esc(a)}" data-l="${esc(l)}" type="button">Approve</button>
+      <button class="btn small quiet live-only" data-act="lesson" data-do="reject" data-ats="${esc(a)}" data-l="${esc(l)}" type="button">Reject</button></div>`).join('')}</div>`
+      : '<div class="empty">No notes waiting.</div>'}
+    <h2>Answer bank <span class="count">${S.memory.answers.length}</span><span class="hint">learned when you mark a job submitted · the agent reuses them when they fit · merge two labels of the same question</span></h2>
+    <div class="list">${S.memory.answers.map(a => `<div class="mem-ans"><div><div class="reason">${esc(a.label)}</div>
+      <select class="live-only" data-act="merge" data-key="${esc(a.key)}" aria-label="Merge ${esc(a.label)} into another question" style="margin-top:6px;max-width:100%">
+        <option value="">Merge into…</option>${keys.filter(k => k[0] !== a.key).map(([k,l]) => `<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></div><div>
+      ${a.variants.map(v => { const k = 'm:' + a.key + ':' + v.answer;
+        return editing.has(k) ? `<div class="variant" style="display:block"><textarea data-k="${esc(k)}" aria-label="Answer">${esc(editing.get(k))}</textarea>
+          <div class="tools"><button class="btn small primary" data-act="msave" data-key="${esc(a.key)}" data-old="${esc(v.answer)}" type="button">Save</button>
+          <button class="btn small quiet" data-act="mcancel" data-key="${esc(a.key)}" data-old="${esc(v.answer)}" type="button">Cancel</button></div></div>`
+        : `<div class="variant"><span>${esc(v.answer)}</span><span class="co">${esc(v.companies.join(', '))}</span>
+          <button class="btn small quiet live-only" data-act="medit" data-key="${esc(a.key)}" data-old="${esc(v.answer)}" type="button">Edit</button>
+          <button class="btn small quiet live-only" data-act="mdel" data-key="${esc(a.key)}" data-old="${esc(v.answer)}" type="button">Delete</button></div>`; }).join('')}
+      </div></div>`).join('')}</div>
+    <h2>Platform notes <span class="hint">the agent follows these on every run</span></h2>
+    ${plat.map(([a, ls]) => `<h2 style="font-size:13px;margin-top:14px">${esc(a)} <span class="count">${ls.length}</span>
+      <button class="btn small quiet live-only" data-act="rename" data-ats="${esc(a)}" type="button">Rename platform</button></h2>
+      <div class="list">${ls.map(l => `<div class="note-row"><span>${esc(l)}</span>
+        <button class="btn small quiet live-only" data-act="lesson" data-do="delete" data-ats="${esc(a)}" data-l="${esc(l)}" type="button">Delete</button></div>`).join('')}</div>`).join('')}
+    ${Object.keys(S.memory.pending).filter(a => !S.memory.platforms[a] && S.memory.pending[a].length).map(a =>
+      `<p class="reason">Pending notes for <b>${esc(a)}</b> <button class="btn small quiet live-only" data-act="rename" data-ats="${esc(a)}" type="button">Rename platform</button></p>`).join('')}
+    ${LIVE ? `<h2>Undo history <span class="hint">memory as it was before each change (agent runs and your edits) — restoring is undoable too</span></h2>
+    ${S.memory.snapshots.length ? `<div class="list">${S.memory.snapshots.map(s => `<div class="note-row"><span>${esc(s.when.replace('T',' '))} · ${esc(ago(s.when))}
+      <span class="reason"> · ${s.answers} questions, ${s.notes} platform notes</span></span>
+      <button class="btn small quiet" data-act="restore" data-name="${esc(s.name)}" type="button">Restore</button></div>`).join('')}</div>`
+      : '<div class="empty">No changes yet — every change from now on can be undone here.</div>'}` : ''}`;
+}
+let FILTER = '', QUERY = '';
+function allJobs() {
+  const statuses = [...new Set(S.jobs.map(j => j.status))];
+  const rows = S.jobs.filter(j => (!FILTER || j.status === FILTER || j.tags.includes(FILTER)) &&
+    (!QUERY || (j.company + ' ' + j.title + ' ' + j.note + ' ' + j.tags.join(' ')).toLowerCase().includes(QUERY)));
+  const allTags = [...new Set(S.jobs.flatMap(j => j.tags))];
+  for (const id of [...SEL]) if (!S.jobs.some(j => j.id === id)) SEL.delete(id);
+  const on = rows.length && rows.every(j => SEL.has(j.id));
+  $('#s-all').innerHTML = `<div class="tools"><input type="search" id="q" placeholder="Search company, title, notes or tags" value="${esc(QUERY)}" aria-label="Search jobs">
+      ${['', ...statuses].map(s => `<button class="btn small ${FILTER === s ? 'primary' : ''}" data-act="filter" data-s="${esc(s)}" type="button">${s || 'all'} ${s ? by([s]).length : S.jobs.length}</button>`).join('')}
+      ${allTags.map(t => `<button class="btn small ${FILTER === t ? 'primary' : ''}" data-act="filter" data-s="${esc(t)}" type="button">#${esc(t)}</button>`).join('')}</div>
+    ${SEL.size && LIVE ? `<div class="bulkbar"><b>${SEL.size} selected</b>
+      <button class="btn small primary" data-act="bulk-fill" type="button">Fill / retry with the agent</button>
+      <button class="btn small" data-act="bulk" data-do="skipped" type="button">Skip</button>
+      <button class="btn small" data-act="bulk" data-do="closed" type="button">Mark closed</button>
+      <button class="btn small" data-act="bulk" data-do="new" type="button">Back to new</button>
+      <input type="text" id="bulk-tag" placeholder="tag" aria-label="Tag to add" style="width:120px"><button class="btn small" data-act="bulk" data-do="tag" type="button">Add tag</button>
+      <button class="btn small quiet" data-act="sel-clear" type="button">Clear</button></div>` : ''}
+    <div class="tbl"><table><thead><tr>${LIVE ? `<th><input type="checkbox" data-act="sel-all" ${on ? 'checked' : ''} aria-label="Select all shown"></th>` : ''}
+      <th>Company</th><th>Role</th><th>Status</th><th>Posting</th><th>Notes</th><th>Found</th><th></th></tr></thead><tbody>
+    ${rows.map(j => `<tr>${LIVE ? `<td><input type="checkbox" data-act="sel" data-id="${j.id}" ${SEL.has(j.id) ? 'checked' : ''} aria-label="Select ${esc(j.company)}"></td>` : ''}
+      <td><b>${esc(j.company)}</b>${j.source === 'manual' ? ' <span class="tag">added by you</span>' : ''}</td><td>${esc(j.title)}</td>
+      <td><span class="tag">${esc(j.status)}</span></td><td>${postingTag(j)}</td>
+      <td>${myTags(j)}${j.note ? `<div class="reason">${esc(j.note.slice(0, 80))}${j.note.length > 80 ? '…' : ''}</div>` : ''}
+        <button class="btn small quiet live-only" data-act="note" data-id="${j.id}" type="button">✎</button></td>
+      <td>${esc(j.found)}</td><td style="white-space:nowrap">${j.log ? `<button class="btn small quiet live-only" data-act="timeline" data-id="${j.id}" type="button">Timeline</button>` : ''}
+        <a href="${esc(j.url)}" target="_blank" rel="noopener">Listing ↗</a></td></tr>`).join('')}
+    </tbody></table></div>`;
+  const q = $('#q'); q.oninput = e => { QUERY = e.target.value.toLowerCase(); const pos = e.target.selectionStart; allJobs(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
+}
+function control() {
+  const h = S.health, d = S.daily, st = S.settings, nNew = by(['new']).length;
+  const mode = {visible: 'Running in its own window — dashboard and form tabs live there.',
+    invisible: 'Running invisibly for the daily run — no window. Starts/restarts wait until it finishes.',
+    stopped: 'Not running. Filling, Open form and login helpers need it.'}[h.browser];
+  $('#s-control').innerHTML = `<div class="grid2">
+    <div class="panel"><h3>Agent Chrome <span class="tag ${h.browser === 'visible' ? 'good' : h.browser === 'stopped' ? 'bad' : 'warn'}">${esc(h.browser)}</span></h3>
+      <p>${mode} Your logins (LinkedIn, Wellfound, Google) live in its own profile.</p>
+      <div class="tools"><button class="btn" data-act="browser" data-do="start" type="button" ${h.browser !== 'stopped' ? 'disabled' : ''}>Start</button>
+        <button class="btn" data-act="browser" data-do="stop" type="button" ${h.browser === 'stopped' ? 'disabled' : ''}>Stop</button>
+        <button class="btn" data-act="browser" data-do="restart" type="button" ${h.browser !== 'visible' ? 'disabled' : ''}>Restart</button></div>
+      <p style="margin-top:12px">Your usual Chrome profiles missing? That happens when only the agent Chrome is open and you click the Chrome icon.</p>
+      <button class="btn" data-act="browser" data-do="normal" type="button">Open my normal Chrome</button></div>
+    <div class="panel"><h3>Claude login <span class="tag ${h.login === false || h.login_error ? 'bad' : h.login ? 'good' : 'warn'}">${h.login === false || h.login_error ? 'expired' : h.login ? 'signed in' : 'unknown'}</span></h3>
+      <p>Every agent run uses your Claude subscription login. When it expires, runs fail with "authenticate" errors.${h.login_error ? ' <b style="color:var(--bad)">The last agent run failed to authenticate.</b>' : ''}</p>
+      <div class="tools"><button class="btn ${h.login === false || h.login_error ? 'primary' : ''}" data-act="login" data-do="go" type="button">Sign in to Claude</button>
+        <button class="btn quiet" data-act="login" data-do="recheck" type="button">Recheck</button></div>
+      <p style="margin-top:8px">Opens Terminal with <code>claude auth login</code> — the sign-in itself happens there and in your browser.</p></div>
+    <div class="panel"><h3>Run</h3>
+      <div class="run-row"><div class="what">Find jobs<small>Discovery agent searches boards and your target companies (~5 min)</small></div>
+        <button class="btn" data-act="discover" type="button">Find jobs</button></div>
+      <div class="run-row"><div class="what">Fill new jobs<small>${nNew} new · leave empty for all, or pick jobs in All jobs</small></div>
+        <input type="number" id="fill-n" min="1" max="${Math.max(nNew,1)}" placeholder="all" aria-label="How many to fill">
+        <button class="btn" data-act="fill-new" type="button">Fill</button></div>
+      <div class="run-row"><div class="what">Check postings<small>Greenhouse / Ashby / Lever APIs mark closed jobs — free</small></div>
+        <button class="btn" data-act="check" type="button">Check</button></div>
+      <div class="run-row"><div class="what">Run the daily pipeline now<small>find → fill → check postings, ignoring the battery/idle rules</small></div>
+        <button class="btn" data-act="daily-now" type="button">Run now</button></div>
+      <div class="run-row"><div class="what">Detect submissions now<small>reads the agent Chrome's tabs for "application submitted" pages (also runs every 30 s)</small></div>
+        <button class="btn" data-act="detect" type="button">Detect</button></div></div>
+    <div class="panel"><h3>Daily run <span class="tag ${d.on ? 'good' : 'warn'}">${d.on ? 'on' : 'off'}</span>
+        <button class="btn small" data-act="daily-toggle" type="button">${d.on ? 'Turn off' : 'Turn on'}</button></h3>
+      <p>Checks every 30 min while the Mac is awake; runs once a day while you're using it and it has power — invisibly, nothing on screen.</p>
+      <p><b style="color:var(--ink)">Last run:</b> ${esc(d.last_date || 'never')}${d.status ? `<br><b style="color:var(--ink)">Last check:</b> ${esc(d.status)} <span class="reason">(${esc(ago(d.status_at))})</span>` : ''}</p>
+      <div class="form">
+        <label>Run on battery only above (%)<input type="number" id="set-batt" min="0" max="100" value="${st.min_battery}"></label>
+        <label>Count the Mac as "in use" if touched in the last (minutes)<input type="number" id="set-idle" min="1" max="240" value="${st.max_idle_min}"></label>
+        <label>Daily usage cap, API-equivalent $ (0 = no cap) — filling pauses at the cap<input type="number" id="set-cap" min="0" step="0.5" value="${st.daily_cap_usd}"></label>
+        <label class="inline"><input type="checkbox" id="set-auto" ${st.auto_detect ? 'checked' : ''}> Detect submissions automatically</label>
+        <div><button class="btn primary" data-act="settings" type="button">Save settings</button></div></div>
+      ${d.last_log && d.last_log.length ? `<details style="margin-top:10px"><summary class="reason">Last pipeline log (${esc(d.last_log_at)})</summary><pre class="log">${esc(d.last_log.join('\n'))}</pre></details>` : ''}</div>
+    <div class="panel"><h3>Add a job</h3><p>Found one yourself? Paste the link — it joins the list like any discovered job.</p>
+      <div class="form"><label>Job link<input type="url" id="add-url" placeholder="https://jobs.ashbyhq.com/…"></label>
+        <label>Company (optional — guessed from the link)<input type="text" id="add-co"></label>
+        <label>Role (optional)<input type="text" id="add-title"></label>
+        <label class="inline"><input type="checkbox" id="add-fill"> Fill it now with the agent</label>
+        <div><button class="btn primary" data-act="add" type="button">Add job</button></div></div></div>
+    <div class="panel"><h3>Dashboard server</h3>
+      <p>${S.managed ? 'Runs in the background all the time (starts at login, restarts itself if it crashes). Nothing to start by hand.' : 'Started from a terminal — closing that terminal stops it.'}</p>
+      ${S.managed ? '<button class="btn" data-act="restart" type="button">Restart server</button><p style="margin-top:8px">Use after JobPilot\'s code changes. Running tasks keep going.</p>' : ''}</div>
+  </div>
+  <h2>Tasks <span class="hint">everything started from here, newest first — Log shows the full output</span></h2>
+  ${S.tasks.length ? `<div class="tbl"><table><thead><tr><th>Task</th><th>Status</th><th>Started</th><th class="num">Took</th><th>Last output</th><th></th></tr></thead><tbody>
+    ${[...S.tasks].reverse().map(t => `<tr><td>${esc(t.label)}</td><td><span class="tag ${{done:'good',failed:'bad',running:'',cancelled:'warn',interrupted:'warn'}[t.status]}">${t.status === 'running' ? '<span class="spin"></span>' : ''}${esc(t.status)}</span></td>
+      <td>${esc(ago(t.started))}</td><td class="num">${esc(dur(t.started, t.ended))}</td><td><div class="reason">${esc((t.result || '').split('\n').slice(-1)[0].slice(0, 120))}</div></td>
+      <td style="white-space:nowrap"><button class="btn small quiet" data-act="log" data-t="${t.id}" type="button">Log</button>
+        ${t.status === 'running' && t.pid ? `<button class="btn small danger" data-act="cancel" data-t="${t.id}" type="button">Cancel</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty">No tasks yet.</div>'}`;
+}
+async function loadFile(name) {
+  const r = await fetch('/api/file/' + name).then(r => r.json());
+  Object.assign(FILE, {name, text: r.text, orig: r.text, fname: r.name});
+  if (TAB === 'knowledge') knowledge();
+}
+function knowledge() {
+  if (FILE.text === null) { loadFile(FILE.name); }
+  const dirty = FILE.text !== null && FILE.text !== FILE.orig, R = S.resumes;
+  $('#s-knowledge').innerHTML = `
+    <h2>What the agents know <span class="hint">edit here — the next run reads the new version · every save keeps the old one in artifacts/backups</span></h2>
+    <div class="tools">${Object.entries(S.files).map(([k]) => `<button class="btn small ${FILE.name === k ? 'primary' : ''}" data-act="file-pick" data-f="${k}" type="button">${{profile:'Profile',answers:'Standard answers',resume:'Resume text',targets:'Target companies'}[k]}</button>`).join('')}</div>
+    <p class="reason">${esc(S.files[FILE.name])} ${FILE.fname ? `<code>${esc(FILE.fname)}</code>` : ''}</p>
+    ${FILE.text === null ? '<div class="empty">loading…</div>' : `<textarea class="code" id="file-ta" aria-label="File contents" spellcheck="false">${esc(FILE.text)}</textarea>
+      <div class="tools"><button class="btn primary" data-act="file-save" type="button" ${dirty ? '' : 'disabled'}>Save</button>
+        <button class="btn quiet" data-act="file-revert" type="button" ${dirty ? '' : 'disabled'}>Discard changes</button>
+        ${dirty ? '<span class="tag warn">unsaved</span>' : ''}</div>`}
+    <h2>Resumes <span class="hint">one PDF per track · the agent picks the track per job and uploads that PDF · no PDF → your master resume (${esc(R.master || 'not found')})</span></h2>
+    <div class="tbl"><table><thead><tr><th>Track</th><th>PDF the agent uploads</th><th class="num">Jobs on this track</th><th></th></tr></thead><tbody>
+    ${R.tracks.map(t => `<tr><td><b>${esc(t.track.replaceAll('_',' '))}</b></td><td>${esc(t.file || '—')} ${t.own ? '<span class="tag good">own PDF</span>' : '<span class="tag">master</span>'}</td>
+      <td class="num">${t.jobs}</td><td style="white-space:nowrap"><label class="btn small">Upload PDF<input type="file" accept="application/pdf" data-act="upload" data-track="${t.track}" hidden></label>
+      ${t.own ? `<button class="btn small quiet" data-act="resume-remove" data-track="${t.track}" type="button">Remove</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function insights() {
+  const u = S.usage, o = S.outcomes, cap = S.settings.daily_cap_usd, max = Math.max(...u.days.map(d => d.cost), cap || 0, 0.01);
+  const otbl = (rows, name) => rows.length ? `<div class="tbl"><table><thead><tr><th>${name}</th><th class="num">Submitted</th><th class="num">Heard back</th><th class="num">Interviews</th><th class="num">Offers</th><th class="num">Reply rate</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${esc(r.key.replaceAll('_',' '))}</td><td class="num">${r.submitted}</td><td class="num">${r.heard}</td><td class="num">${r.interviews}</td><td class="num">${r.offers}</td><td class="num"><b>${pct(r.heard, r.submitted)}</b></td></tr>`).join('')}
+    </tbody></table></div>` : '';
+  const ev = S.evals;
+  $('#s-insights').innerHTML = `
+    <h2>Outcomes <span class="hint">record replies, interviews, offers and rejections in Applied — this shows which resume track and platform get answers</span></h2>
+    <div class="stats"><div class="stat"><b>${o.submitted}</b><span>submitted</span></div><div class="stat"><b>${S.funnel.replies}</b><span>heard back (${pct(S.funnel.replies, o.submitted)})</span></div>
+      <div class="stat"><b>${S.funnel.interviews}</b><span>interviews (${pct(S.funnel.interviews, o.submitted)})</span></div><div class="stat"><b>${by(['offer']).length}</b><span>offers</span></div></div>
+    ${o.submitted ? `<h3 style="margin-top:14px">By resume track</h3>${otbl(o.by_track, 'Track')}<h3 style="margin-top:14px">By platform</h3>${otbl(o.by_platform, 'Platform')}`
+      : '<div class="empty">No submissions recorded yet — mark jobs submitted in Today.</div>'}
+    <h2>Usage <span class="hint">API-equivalent $ of agent runs — not billed on your Claude subscription, but it counts toward your plan's limits · latest run per job</span></h2>
+    <div class="stats"><div class="stat"><b>${usd(u.today)}</b><span>today${cap ? ` · cap ${usd(cap)}` : ''}</span></div><div class="stat"><b>${usd(u.week)}</b><span>last 7 days</span></div>
+      <div class="stat"><b>${usd(u.avg_cost)}</b><span>per job run (avg)</span></div><div class="stat"><b>${u.avg_turns}</b><span>turns per job run (avg)</span></div></div>
+    <h3 style="margin-top:14px">Per day</h3>
+    <div class="panel"><div class="bars">${u.days.length ? u.days.map(d => `<div class="barrow"><span>${esc(d.day.slice(5))}</span>
+      <div><div class="bar ${cap && d.cost > cap ? 'over' : ''}" style="width:${Math.max(1, 100 * d.cost / max)}%"></div></div><span class="reason">${usd(d.cost)} · ${d.runs} run${d.runs === 1 ? '' : 's'}</span></div>`).join('')
+      : '<span class="reason">No agent runs yet.</span>'}</div></div>
+    <div class="grid2"><div><h3>By track</h3><div class="tbl"><table><thead><tr><th>Track</th><th class="num">Runs</th><th class="num">Turns</th><th class="num">$</th></tr></thead><tbody>
+      ${u.tracks.map(t => `<tr><td>${esc(t.track.replaceAll('_',' '))}</td><td class="num">${t.runs}</td><td class="num">${t.turns}</td><td class="num">${usd(t.cost)}</td></tr>`).join('')}</tbody></table></div></div>
+      <div><h3>Most expensive jobs</h3><div class="tbl"><table><thead><tr><th>Job</th><th class="num">Turns</th><th class="num">$</th></tr></thead><tbody>
+      ${u.top.map(t => `<tr><td>${esc(t.company)}<div class="reason">${esc(t.title)}</div></td><td class="num">${t.turns}</td><td class="num">${usd(t.cost)}</td></tr>`).join('')}</tbody></table></div></div></div>
+    <h2>Agent eval <span class="hint">runs the ApplyAgent on ${ev.cases} fixed jobs across platforms (statuses untouched) to check it still works</span>
+      <button class="btn small live-only" data-act="eval" type="button">Run eval</button></h2>
+    ${ev.history.length ? `<div class="tbl"><table><thead><tr><th>Date</th><th class="num">Passed</th><th class="num">Turns</th><th class="num">$</th><th>Failures</th></tr></thead><tbody>
+      ${ev.history.map(e => `<tr><td>${esc(e.date)}</td><td class="num"><b>${e.pass}/${e.cases}</b></td><td class="num">${e.turns}</td><td class="num">${usd(e.cost)}</td>
+        <td>${e.fails.length ? e.fails.map(f => `<div class="reason">${esc(f)}</div>`).join('') : '<span class="tag good">none</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">No eval runs yet.</div>'}`;
+}
+function dock() {
+  const running = S.tasks.filter(t => t.status === 'running');
+  let el = $('#running'); if (!el) { el = document.createElement('div'); el.id = 'running'; $('#dock').prepend(el); }
+  el.innerHTML = running.map(t => `<div class="toast"><span class="spin"></span><b style="display:inline">${esc(t.label)}</b><pre>running ${esc(dur(t.started))}</pre>
+    <div class="tools"><button class="btn small" data-act="log" data-t="${t.id}" type="button">Log</button>
+    ${t.pid ? `<button class="btn small danger" data-act="cancel" data-t="${t.id}" type="button">Cancel</button>` : ''}</div></div>`).join('');
+}
+
+// ── clicks ─────────────────────────────────────────────────────────────────
+const STATUS_ACTS = ['applied','skipped','replied','interview','offer','rejected','ready-to-submit'];
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-go],[data-act]'); if (!b || b.tagName === 'SELECT' || b.type === 'file') return;
+  if (b.dataset.go) return go(b.dataset.go);
+  const {act, id, i} = b.dataset, k = id + ':' + i;
+  const job = id && S.jobs.find(j => j.id === id);
+  const local = {
+    'toggle': () => { open.has(id) ? open.delete(id) : open.add(id); render(); },
+    'edit': () => { editing.set(k, job.qa[i].a); render(); document.getElementById('ta-' + id + '-' + i)?.focus(); },
+    'cancel-edit': () => { editing.delete(k); render(); },
+    'filter': () => { FILTER = b.dataset.s; render(); },
+    'medit': () => { editing.set('m:' + b.dataset.key + ':' + b.dataset.old, b.dataset.old); render(); },
+    'mcancel': () => { editing.delete('m:' + b.dataset.key + ':' + b.dataset.old); render(); },
+    'timeline': () => openTimeline(id), 'note': () => openNote(id), 'log': () => openTaskLog(+b.dataset.t),
+    'shot': () => openShot(job.shot, `${job.company} — filled form`),
+    'zoom': () => b.closest('.zoom').classList.toggle('big'),
+    'dlg-close': () => $('#dlg').close(),
+    'sel': () => { b.checked ? SEL.add(id) : SEL.delete(id); render(); },
+    'sel-all': () => { const vis = [...document.querySelectorAll('#s-all [data-act=sel]')].map(x => x.dataset.id);
+      vis.forEach(x => b.checked ? SEL.add(x) : SEL.delete(x)); render(); },
+    'sel-clear': () => { SEL.clear(); render(); },
+    'file-pick': () => { if (FILE.text !== FILE.orig && !confirm('Discard unsaved changes?')) return; FILE.text = null; FILE.name = b.dataset.f; knowledge(); },
+    'file-revert': () => { FILE.text = FILE.orig; knowledge(); },
+    'copy': async () => { await navigator.clipboard.writeText(b.dataset.text); toast('Copied', '', 'ok'); },
+  };
+  if (local[act]) return local[act]();
+  b.disabled = true;
+  try {
+    if (act === 'open') await api('open/' + id);
+    else if (STATUS_ACTS.includes(act)) await api('status/' + id, {status: act});
+    else if (act === 'save') { const v = document.getElementById('ta-' + id + '-' + i).value; editing.delete(k); await api('answer/' + id, {idx: +i, answer: v}); }
+    else if (act === 'push') await api('push/' + id, {idx: +i});
+    else if (act === 'site') await api('site/' + id);
+    else if (act === 'reveal') await api('reveal/' + id);
+    else if (act === 'retry') { if (ask(`Retry ${job.company} with the agent?`, 1)) await api('retry', {ids: [id]}); }
+    else if (act === 'retry-all') { const ids = b.dataset.ids.split(','); if (ask(`Retry all ${ids.length} jobs in this group?`, ids.length)) await api('retry', {ids}); }
+    else if (act === 'bulk-fill') { if (ask(`Fill or retry ${SEL.size} selected job(s)?`, SEL.size)) { await api('retry', {ids: [...SEL], verb: 'Fill selected'}); SEL.clear(); render(); } }
+    else if (act === 'bulk') { const tag = $('#bulk-tag')?.value || '';
+      if (b.dataset.do === 'tag' || confirm(`Set ${SEL.size} job(s) to “${b.dataset.do}”?`)) { await api('bulk', {ids: [...SEL], do: b.dataset.do, tag}); if (b.dataset.do !== 'tag') SEL.clear(); render(); } }
+    else if (act === 'fill-new') { const n = +($('#fill-n')?.value || 0) || by(['new']).length;
+      if (!by(['new']).length) toast('No new jobs to fill', 'Find jobs first, or pick jobs in All jobs.', 'err');
+      else if (ask(`Fill ${n} new job${n === 1 ? '' : 's'}?`, n)) await api('fill', {limit: +($('#fill-n')?.value || 0)}); }
+    else if (act === 'discover') { if (confirm('Find jobs now?\n\nOne discovery agent run with web searches (~5 min, a few $ API-equivalent; counts toward your Claude plan limits).\n\nContinue?')) await api('discover'); }
+    else if (act === 'check') await api('check');
+    else if (act === 'daily-now') { if (ask('Run the whole daily pipeline now (find → fill → check)?', Math.max(by(['new']).length, 1))) await api('daily', {do: 'now'}); }
+    else if (act === 'detect') await api('detect');
+    else if (act === 'eval') { if (ask(`Run the agent eval on ${S.evals.cases} jobs? Opens tabs in the agent Chrome; statuses aren't changed.`, S.evals.cases)) await api('eval'); }
+    else if (act === 'cancel') { if (confirm('Cancel this task? Forms already filled stay open; the job being filled right now stays in its old status.')) await api('cancel/' + b.dataset.t); }
+    else if (act === 'browser') { const d = b.dataset.do;
+      if (!['stop','restart'].includes(d) || confirm(`${d === 'stop' ? 'Stop' : 'Restart'} the agent Chrome? Its tabs close (including this dashboard if it's open there) — filled forms come back with Open form.`)) await api('browser/' + d); }
+    else if (act === 'login') await api('login/' + b.dataset.do);
+    else if (act === 'daily-toggle') await api('daily', {do: S.daily.on ? 'off' : 'on'});
+    else if (act === 'settings') await api('daily', {do: 'settings', settings: {min_battery: +$('#set-batt').value, max_idle_min: +$('#set-idle').value,
+      daily_cap_usd: +$('#set-cap').value, auto_detect: $('#set-auto').checked}});
+    else if (act === 'add') { const out = await api('add', {url: $('#add-url').value, company: $('#add-co').value, title: $('#add-title').value, fill: $('#add-fill').checked});
+      if (!out.error) ['#add-url','#add-co','#add-title'].forEach(s => { const el = $(s); if (el) el.value = ''; }); }
+    else if (act === 'restart') { if (confirm('Restart the dashboard server?')) await api('restart'); }
+    else if (act === 'note-save') { await api('note/' + id, {note: $('#n-text').value, tags: $('#n-tags').value.split(',')}); $('#dlg').close(); }
+    else if (act === 'file-save') { const out = await api('file/' + FILE.name, {text: FILE.text}); if (!out.error) { FILE.orig = FILE.text; knowledge(); } }
+    else if (act === 'resume-remove') { if (confirm(`Remove the ${b.dataset.track} PDF? Jobs on this track will use your master resume.`)) await api('resume-remove/' + b.dataset.track); }
+    else if (act === 'rename') { const n = prompt(`Rename platform “${b.dataset.ats}” to:`, b.dataset.ats); if (n && n !== b.dataset.ats) await api('memory', {kind: 'rename', old: b.dataset.ats, new: n}); }
+    else if (act === 'restore') { if (confirm('Restore memory to this point? (You can undo this too.)')) await api('memory', {kind: 'restore', name: b.dataset.name}); }
+    else if (act === 'lesson') await api('memory', {kind: 'lesson', ats: b.dataset.ats, lesson: b.dataset.l, action: b.dataset.do});
+    else if (act === 'mdel') await api('memory', {kind: 'answer', key: b.dataset.key, old: b.dataset.old, new: null});
+    else if (act === 'msave') { const mk = 'm:' + b.dataset.key + ':' + b.dataset.old, v = b.closest('.variant').querySelector('textarea').value; editing.delete(mk);
+      await api('memory', {kind: 'answer', key: b.dataset.key, old: b.dataset.old, new: v}); }
+  } finally { b.disabled = false; }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  if (el.dataset.act === 'merge' && el.value) {
+    const dst = S.memory.answers.find(a => a.key === el.value);
+    if (confirm(`Merge “${el.closest('.mem-ans').querySelector('.reason').textContent}” into “${dst.label}”? Their answers are combined.`))
+      await api('memory', {kind: 'merge', src: el.dataset.key, dst: el.value});
+    else el.value = '';
+  }
+  if (el.dataset.act === 'upload' && el.files[0]) await api('resume/' + el.dataset.track, {}, el.files[0]);
+});
+document.addEventListener('input', e => {
+  if (e.target.dataset.k && editing.has(e.target.dataset.k)) editing.set(e.target.dataset.k, e.target.value);
+  if (e.target.id === 'file-ta') { const was = FILE.text === FILE.orig; FILE.text = e.target.value; if (was !== (FILE.text === FILE.orig)) {
+    const pos = e.target.selectionStart, top = e.target.scrollTop; knowledge(); const t = $('#file-ta'); t.focus(); t.setSelectionRange(pos, pos); t.scrollTop = top; } }
+});
+window.addEventListener('beforeunload', e => { if (FILE.text !== null && FILE.text !== FILE.orig) e.preventDefault(); });
+$('#b-notify').onclick = async () => { await Notification.requestPermission(); notifyButton();
+  if (Notification.permission === 'granted') new Notification('JobPilot notifications are on', {body: "You'll hear when forms are ready, tasks finish, or a posting closes."}); };
+window.addEventListener('hashchange', () => { TAB = location.hash.slice(1) || 'today'; render(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+refresh();
+</script>
+</body></html>

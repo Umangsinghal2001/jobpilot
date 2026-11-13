@@ -1,0 +1,72 @@
+# verified: 2026-10-03 · covers: [memory.py: _keep, _names, NOT_A_VALUE, learn, SEED_LESSONS, MAX_LESSONS]
+...@_style
+direction: down
+
+title: |md
+  # 8 · What memory keeps — the filters inside learn()
+| {near: top-center}
+
+answers: "ANSWERS — _keep(company, field)" {
+  class: py
+  direction: down
+  f: "each Field from report_filled" {class: agent}
+  q1: "answer not empty?" {class: q}
+  q2: "confidence == sure?" {class: q}
+  q3: "reusable == true?\n(agent's call)" {class: q}
+  q4: "≤ 200 chars?" {class: q}
+  q5: "not a placeholder?\nessay · custom · tailored · letter · left blank ·\n'(displayed / rendered / formatted …)'" {class: q}
+  q6: "doesn't name the company?\n_names: whole name, or first word ≥4 chars, as a whole word\n('AI Labs' never blocks 'email')" {class: q}
+  q7: "label isn't resume / CV / cover letter?\n(files are picked per job by track)" {class: q}
+  skip: "SKIP — not remembered" {class: bad}
+  key: "key = norm(label)" {class: py}
+  same: "same answer already stored?" {class: q}
+  add: "add company (keep last 5) · updated = today" {class: ok}
+  new: "insert NEW variant at the front\n(older answers kept: Yes (Job E) | No (Job A))" {class: ok}
+
+  f -> q1
+  q1 -> q2: yes
+  q2 -> q3: yes
+  q3 -> q4: yes
+  q4 -> q5: yes
+  q5 -> q6: yes
+  q6 -> q7: yes
+  q7 -> key: yes
+  q1 -> skip: no {class: red}
+  q2 -> skip: "guess" {class: red}
+  q3 -> skip: no {class: red}
+  q4 -> skip: "essay" {class: red}
+  q5 -> skip: no {class: red}
+  q6 -> skip: "names it" {class: red}
+  q7 -> skip: "file field" {class: red}
+  key -> same
+  same -> add: yes
+  same -> new: no
+}
+
+lessons: "PLATFORM LESSONS" {
+  class: py
+  direction: down
+  l: "each lesson from report_filled" {class: agent}
+  n1: "names the company?" {class: q}
+  drop: "DROP — job-specific, not a platform fact" {class: bad}
+  k: "platform = ats_key(report.ats, url)\ngreenhouse · ashby · lever · workday · … · other" {class: py}
+  d: "already there? (case-insensitive)" {class: q}
+  dup: "skip duplicate" {class: bad}
+  app: "append" {class: ok}
+  cap: "more than 20?" {class: q}
+  ev: "evict the OLDEST LEARNED lesson\nSEED_LESSONS are pinned" {class: ok}
+  l -> n1
+  n1 -> drop: yes {class: red}
+  n1 -> k: no
+  k -> d
+  d -> dup: yes {class: red}
+  d -> app: no
+  app -> cap
+  cap -> ev: yes
+}
+
+save: "_save(): write memory.tmp → atomic replace memory.json\n(a crash never leaves half a file)" {class: data}
+answers.add -> save
+answers.new -> save
+lessons.ev -> save
+lessons.cap -> save: no

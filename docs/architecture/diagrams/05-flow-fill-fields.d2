@@ -1,0 +1,46 @@
+# verified: 2026-10-03 · covers: [apply_agent.py: Guard.post, fill_fields · quickfill/quickfill.mjs]
+...@_style
+
+title: |md
+  # 5 · Flow 2 — fill_fields: the whole page in ONE tool call
+  entry: `apply_agent.py:381 fill_fields` → `quickfill/quickfill.mjs`
+| {near: top-center}
+
+seq: "" {
+  shape: sequence_diagram
+  o: "Opus agent" {class: agent}
+  p: "Playwright MCP" {class: ext}
+  g: "Guard" {class: guard}
+  t: "fill_fields\n(Python, in-process)" {class: py}
+  n: "quickfill.mjs\n(Node subprocess)" {class: node}
+  c: "Chrome tab" {class: ext}
+
+  open: "open + read the page" {
+    o -> p: "browser_tabs new (job url)"
+    p -> g: "PostToolUse: record 'Page URL: …'\n→ guard.urls (host+path)"
+    o -> p: "browser_snapshot  (+ greenhouse_questions on Greenhouse)"
+    p -> o: "aria tree: every field's visible label"
+    o."build ONE request: [{label, kind, value}]\nfor EVERY field on the page\nvalues ← answer bank · profile · JD"
+  }
+
+  call: "the one call" {
+    o -> t: "fill_fields{url, fields[]}"
+    t -> t: "tab_ready?  else 'open your own tab first'"
+    t -> t: "host+path(url) ∈ guard.urls?\nelse 'url must be the Page URL of your tab'"
+    t -> n: "spawn node · stdin {url, fields, files_allowed = resume PDFs}"
+    n -> c: "connectOverCDP(:9222, {noDefaults: true})\nnewest tab whose host+path matches"
+    n -> c: "bringToFront()  (background tabs are throttled)"
+    n -> c: "files first → wait for network idle\nthen every other field (see diagram 7)"
+    n -> c: "read-back every text value"
+    n -> t: "{ok, results[]}  — exits WITHOUT closing the tab"
+    t -> o: "'14/14 fields ok.'  or  '- NOT OK [status] label: detail'"
+    t -> g: "PostToolUse: filled++ · log input + output to artifacts/<id>.log"
+  }
+
+  verify: "verify + fix only what failed" {
+    o -> p: "ONE browser_snapshot"
+    o -> p: "NOT OK only: click combobox → snapshot → click option"
+    p -> g: "PreToolUse on every click: submit-like? → DENY"
+    o -> p: "multi-step form: click Next → next page → one more fill_fields"
+  }
+}

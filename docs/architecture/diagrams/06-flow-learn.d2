@@ -1,0 +1,50 @@
+# verified: 2026-10-03 · covers: [apply_agent.py: apply (after query) · memory.py: learn, _keep, _names, ats_key, _save]
+...@_style
+
+title: |md
+  # 6 · Flow 3 — Learn: a filled run teaches memory
+  entry: `apply_agent.py:479` → `memory.py:84 learn()`
+| {near: top-center}
+
+seq: "" {
+  shape: sequence_diagram
+  o: "Opus agent" {class: agent}
+  a: "apply()" {class: py}
+  l: "memory.learn()" {class: py}
+  k: "_keep() / _names()" {class: guard}
+  f: "memory.json" {class: data}
+  y: "You" {class: you}
+
+  o -> a: "report_filled{fields[], lessons[], ats, …}"
+  o."answer = EXACT typed value\nreusable = generic question?\nlessons = 0-5 platform tips"
+
+  gate: "only when kind == filled  (blocked / error runs teach nothing)" {
+    a -> l: "learn(company, report, url)"
+    l -> f: "load()"
+
+    fields: "for every field" {
+      l -> k: "_keep(company, field)?"
+      k -> l: "yes / no  (see diagram 8)"
+      l -> l: "yes → key = norm(label)\nsame answer exists → add company (keep last 5), updated = today\nnew answer → insert NEW variant first (old ones kept)"
+    }
+
+    lessons: "platform lessons" {
+      l -> k: "_names(company, lesson)?  → drop company-specific ones"
+      l -> l: "platform = ats_key(report.ats, url)\ndedup (case-insensitive) · append"
+      l -> l: "while > 20: evict oldest LEARNED lesson\n(SEED_LESSONS never evicted)"
+    }
+
+    l -> f: "_save(): write memory.tmp → atomic replace"
+  }
+
+  a -> a: "learn() raised? → result.memory_error\n(run still succeeds)"
+
+  human: "any time" {
+    y -> f: "edit / correct by hand"
+    f."used by the next job's prompt"
+  }
+
+  seed: "one-off backfill" {
+    y -> l: "python3 memory.py --seed\n(every ready-to-submit report in store.db → same learn())"
+  }
+}

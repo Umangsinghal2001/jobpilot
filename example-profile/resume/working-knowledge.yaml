@@ -1,0 +1,10 @@
+# Skills beyond what resume.yaml shows. The apply agent may draw on this list; nothing else is claimed.
+
+# used: worked with these. Claim them plainly; no invented numbers, scale or project details.
+used:
+  - pgvector
+  - Temporal (workflow orchestration)
+
+# working_knowledge: knows it, not used in production. Only ever "working knowledge of X".
+working_knowledge:
+  - Kubernetes

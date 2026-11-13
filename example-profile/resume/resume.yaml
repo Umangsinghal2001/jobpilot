@@ -1,0 +1,58 @@
+# Example resume — the one source of truth. `python resume/build.py` turns it into resume.pdf.
+# **bold** for emphasis, [text](url) for links. Tailored versions (versions/<job>.yaml) change only what they name.
+
+name: Alex Rivera
+title: AI Engineer
+
+contact:
+  - {icon: mail, label: alex.rivera@example.com, url: "mailto:alex.rivera@example.com"}
+  - {icon: phone, label: "+1 555 010 0199", url: "tel:+15550100199"}
+  - {icon: linkedin, label: LinkedIn, url: "https://www.linkedin.com/in/example"}
+
+profile: >-
+  Backend engineer who ships **LLM features to production**: retrieval, tool-using agents, and the evals and
+  monitoring that keep them working after launch.
+
+experience:
+  - company: Example Corp
+    roles:
+      - title: AI Engineer
+        location: Austin, TX
+        dates: March 2023 – Present
+        projects:
+          - name: Support Triage Agent
+            bullets:
+              - >-
+                Built an agent that reads a support ticket, pulls the account's history and drafts a reply for a human
+                to approve, cutting first-response time from **6 hours to 40 minutes**.
+              - Gated every prompt change on an eval set of 300 real tickets, scored per category.
+          - name: Document Search
+            bullets:
+              - Built hybrid search (BM25 + embeddings in Postgres) over 2M help-center and contract documents.
+              - Added citations to every answer so support staff can check the source in one click.
+  - company: Sample Systems
+    roles:
+      - title: Backend Engineer
+        location: Austin, TX
+        dates: June 2021 – February 2023
+        projects:
+          - name: Billing Platform
+            bullets:
+              - Moved invoice generation from a nightly cron to an event queue, so invoices go out within a minute.
+              - Wrote the reconciliation job that catches mismatched payments before month end.
+
+achievements:
+  - text: Speaker at a local Python meetup on evaluating LLM features.
+
+skills:
+  - group: Languages & Data
+    items: Python, TypeScript, SQL, Postgres, Redis
+  - group: AI
+    items: LLM APIs, RAG, agents, tool calling, evals, embeddings
+  - group: Infrastructure
+    items: Docker, AWS (ECS, S3, Lambda), GitHub Actions, OpenTelemetry
+
+education:
+  - {school: "Example State University || Computer Science", degree: B.S., dates: 2017 – 2021}
+
+certificates: []

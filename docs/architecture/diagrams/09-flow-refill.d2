@@ -1,0 +1,51 @@
+# verified: 2026-10-09 · covers: [apply_agent.py: Guard.recipe, fill_fields, build_recipe · refill.py · quickfill/quickfill.mjs (open, auto)]
+...@_style
+
+title: |md
+  # 9 · Recipes + refill — get a filled form back without the agent
+  tab closed · Chrome restarted · session expired → `python3 refill.py <job>` · ~10 s · $0 · no Claude  
+| {near: top-center}
+
+record: "A · RECORD — during every agent run" {
+  shape: sequence_diagram
+  o: "Opus agent" {class: agent}
+  t: "fill_fields" {class: py}
+  g: "Guard.recipe\n(in memory, per job)" {class: guard}
+  a: "apply()" {class: py}
+  f: "store.db\njobs.extra.recipe" {class: data}
+
+  o -> t: "fill_fields{url, fields[label, kind, value]}"
+  t -> g: "per result: norm(label) → {label, kind, value, url, ok}\n(last write wins · real page labels)"
+  o -> a: "report_filled{fields[label, exact answer]}"
+  a -> a: "build_recipe():\n1 every fill_fields item (proven on this form)\n2 item failed + fixed by hand → agent's final answer\n3 field only filled by hand → kind=auto by label\n4 resume → kind=file\nskip placeholders · skip cover letter"
+  a -> f: "store.set_extra(id, recipe)  (exact values incl. job-specific essays)"
+}
+
+replay: "B · REPLAY — any time later, no agent" {
+  shape: sequence_diagram
+  y: "You" {class: you}
+  r: "refill.py" {class: py}
+  c: "Agent Chrome" {class: ext}
+  n: "quickfill.mjs\n(open + auto)" {class: node}
+  s: "store.db" {class: data}
+
+  y -> r: "python3 refill.py <company | title | id>  [--force]"
+  r -> c: "tab for this form still open? → stop (nothing to do)"
+  r -> c: "close_stale_tabs(job.url)"
+  r -> n: "per form page: {url, fields, files_allowed = resume PDFs, open: true}"
+  n -> c: "no tab → newPage + goto(url) + wait network idle"
+  closed: "page redirected away (posting removed)" {
+    n -> r: "error: 'the posting is probably closed'"
+    r -> s: "status = closed"
+  }
+  n -> c: "fill by label · kind=auto: radio group? → select/combobox? → checkbox? → text\n(reworded labels: also try without '(…)' and after ' - ')"
+  n -> r: "{ok, results[]} — tab left open"
+  r -> y: "'13/13 fields restored' + list of anything to finish by hand"
+  y -> c: "review · Submit yourself"
+}
+
+backfill: |md
+  **`refill.py --backfill`** — jobs filled before recipes existed:  
+  recipe from the stored report (`store.db` ready-to-submit + `artifacts/*.result.json`) → written to `store.db`  
+  all fields kind=auto · labels may be reworded · placeholder answers ("rendered as …") skipped  
+| {class: py}

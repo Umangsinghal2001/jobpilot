@@ -1,0 +1,120 @@
+# verified: 2026-10-03 · covers: [memory.py, memory.json, apply_agent.py (FilledReport, FillRequest), quickfill/quickfill.mjs]
+...@_style
+direction: right
+
+title: |md
+  # 3 · Data model
+| {near: top-center}
+
+stored: "STORED — memory.json (human-editable · atomic tmp→replace writes)" {
+  class: data
+  direction: down
+
+  root: {
+    shape: sql_table
+    label: "memory.json"
+    answers: "dict  norm(label) → list[Variant]"
+    platforms: "dict  ats_key → list[Lesson]"
+  }
+  question: {
+    shape: sql_table
+    label: "Question (key)"
+    key: "norm(label): lowercase · no * · no trailing ?:. · single spaces" {constraint: primary_key}
+    variants: "list[Variant], newest first"
+  }
+  variant: {
+    shape: sql_table
+    label: "Variant"
+    answer: "str  exact value typed (≤200 chars)"
+    wording: "str  original label → shown in prompt"
+    companies: "list[str]  last 5 that used this answer"
+    updated: "date  last time seen"
+  }
+  platform: {
+    shape: sql_table
+    label: "Platform (key)"
+    ats: "greenhouse | ashby | lever | workday | wellfound | linkedin | google-form | smartrecruiters | other" {constraint: primary_key}
+    lessons: "list[str]  ≤ 20 · SEED_LESSONS pinned · oldest learned evicted"
+  }
+  root.answers -> question.key: "1 → many"
+  question.variants -> variant.answer: "1 → 1..n (different answers kept side by side)"
+  root.platforms -> platform.ats: "1 → many"
+}
+
+report: "FLOWS IN — report_filled (the ONLY source memory learns from)" {
+  class: agent
+  direction: down
+  fr: {
+    shape: sql_table
+    label: "FilledReport"
+    ats: str
+    track: str
+    resume_uploaded: bool
+    resume_path: str
+    tab_url: str
+    screenshot: str
+    fields: "list[Field]"
+    unfilled_required: "list[str]"
+    steps_seen: int
+    lessons: "list[str]  0-5 platform tips"
+  }
+  field: {
+    shape: sql_table
+    label: "Field"
+    field_label: "str  visible question"
+    answer: "str  MUST be the exact typed value"
+    confidence: "sure | guess"
+    note: "str  why it's a guess"
+    reusable: "bool  agent: generic question any company asks?"
+  }
+  fr.fields -> field.field_label: "1 → many"
+}
+
+request: "FLOWS THROUGH — fill_fields (never stored)" {
+  class: node
+  direction: down
+  req: {
+    shape: sql_table
+    label: "FillRequest  (agent → Python)"
+    url: "str  must be a Page URL seen this run"
+    fields: "list[FillItem]"
+  }
+  item: {
+    shape: sql_table
+    label: "FillItem"
+    field_label: "str  visible label, no *"
+    kind: "text | combobox | select | checkbox | radio | file"
+    value: "str  (file: must be a resume PDF path)"
+  }
+  stdin: {
+    shape: sql_table
+    label: "quickfill stdin  (Python → Node)"
+    url: str
+    fields: "list[FillItem]"
+    files_allowed: "list[str]  = Guard.uploads (resume PDFs)"
+  }
+  result: {
+    shape: sql_table
+    label: "FillResult  (Node → Python → agent)"
+    field_label: str
+    kind: str
+    status: "ok | no_option | not_found | refused | lost | error"
+    detail: "str  e.g. picked \"India +91\" / first 20 options"
+  }
+  req.fields -> item.field_label: "1 → many"
+  req -> stdin: "+ files_allowed"
+  stdin -> result: "one result per item"
+}
+
+prompt: {
+  shape: sql_table
+  label: "prompt_section()  (memory → system prompt)"
+  answer_bank: "top 120 questions by total companies · ≤3 variants each with companies"
+  platform_notes: "every platform's lessons"
+  instruction: "reuse only if it fits THIS job · match on meaning"
+}
+
+report.field -> stored.variant: "learn(): only if _keep() passes" {class: green}
+report.fr.lessons -> stored.platform.lessons: "learn(): unless it names the company" {class: green}
+stored.root -> prompt: "load() → prompt_section()" {style.stroke: "#c27803"; style.stroke-width: 2}
+prompt -> request.req: "agent picks values from the bank" {style.stroke-dash: 4}

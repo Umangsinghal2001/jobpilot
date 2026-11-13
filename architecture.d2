@@ -1,0 +1,933 @@
+# JobPilot — architecture (D2)
+# Render:  d2 architecture.d2 architecture-d2.svg     → architecture-d2/<board>.svg (one per board)
+#          d2 --watch architecture.d2 architecture-d2.svg   (live-reload in browser while editing)
+# Layout:  TALA (bundled with d2 0.9). PDF export exceeds d2's raster limit for the main board — use the SVGs.
+# Boards:  index (whole system) · runtime · apply-sequence · submit-guard · status-lifecycle
+# Colour key — blue: deterministic code · violet: Claude agents · red: safety guard
+#              amber: data/artifacts · green: you · grey: external · dashed: legacy
+
+vars: {
+  d2-config: {
+    layout-engine: tala
+    theme-id: 0
+    pad: 40
+  }
+}
+
+classes: {
+  code: {style: {fill: "#e8f0fe"; stroke: "#1a56db"; font-color: "#0b2a6b"; border-radius: 6}}
+  agent: {style: {fill: "#f1e8ff"; stroke: "#7e3af2"; font-color: "#3b0f86"; border-radius: 6}}
+  guard: {style: {fill: "#fde8e8"; stroke: "#e02424"; font-color: "#771d1d"; stroke-width: 3; border-radius: 6}}
+  data: {style: {fill: "#fdf6b2"; stroke: "#c27803"; font-color: "#633112"; border-radius: 6}}
+  human: {style: {fill: "#def7ec"; stroke: "#0e9f6e"; font-color: "#014737"; stroke-width: 3; border-radius: 6}}
+  ext: {style: {fill: "#f3f4f6"; stroke: "#6b7280"; font-color: "#1f2937"; border-radius: 6}}
+  legacy: {style: {fill: "#ffffff"; stroke: "#9ca3af"; font-color: "#6b7280"; stroke-dash: 4; border-radius: 6}}
+  lane: {style: {fill: "#fafafa"; stroke: "#d1d5db"; stroke-dash: 2; font-size: 22; bold: true}}
+  w-ctl: {style: {stroke: "#1a56db"; stroke-width: 2}}
+  w-agent: {style: {stroke: "#7e3af2"; stroke-width: 2}}
+  w-cdp: {style: {stroke: "#374151"; stroke-width: 3}}
+  w-data: {style: {stroke: "#c27803"; stroke-width: 2; stroke-dash: 3}}
+  w-guard: {style: {stroke: "#e02424"; stroke-width: 3}}
+  w-human: {style: {stroke: "#0e9f6e"; stroke-width: 3}}
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BOARD 1 — the whole system
+# ═══════════════════════════════════════════════════════════════════════════════
+direction: right
+
+title: ||md
+  # JobPilot — whole system
+  **Agentic perception + action · deterministic plumbing + safety** — the agent reads and fills any form; code owns scheduling, state, and the no-Submit guard.  
+|| {near: top-center}
+
+# ── lane 1: triggers + knowledge ──────────────────────────────────────────────
+inputs: "① Triggers & knowledge" {
+  class: lane
+  direction: down
+
+  launchd: ||md
+    **launchd** `com.jobpilot.daily.plist`  
+    - fires daily **08:00**  
+    - stdout → `launchd.out.log`  
+  || {class: code}
+
+  cli: ||md
+    **Manual CLI**  
+    - `python3 run.py`  
+    - `fill.py --job X --limit N --redo --status S`  
+    - `apply_agent.py <id|company>` (one job, debug)  
+    - `eval/run_eval.py --only a,b --save --build`  
+  || {class: code}
+
+  kb: "Profile folder (JOBPILOT_PROFILE)" {
+    class: data
+    direction: down
+    profile: ||md
+      **profile.md**  
+      identity · contact (personal email only)  
+      seniority band · salary floor  
+      `Master resume: …FlowCV_Resume_….pdf`  
+    ||
+    resume_md: ||md
+      **resume.md** — resume text  
+      (pasted when upload fails)  
+    ||
+    kit: ||md
+      **kits/_common-application-answers.md**  
+      notice · salary · relocation · work-auth  
+    ||
+    targets: ||md
+      **target-companies.md**  
+      careers pages to check  
+    ||
+    pdfs: ||md
+      `resumes/<track>.pdf`  
+      `ai_engineer` (default) · `senior_ai_engineer`  
+      `lead_ai_engineer` · `fde_founding`  
+      `data_scientist` · `ai_pm`  
+      missing → master PDF fallback  
+    ||
+  }
+}
+
+# ── lane 2: deterministic orchestration ───────────────────────────────────────
+orch: "② Orchestration — deterministic Python (.venv py3.14)" {
+  class: lane
+  direction: down
+
+  run: ||md
+    **run.py** — daily runner  
+    1. `discover.discover()`  
+    2. `fill.fill()` (status `new`)  
+    3. `dashboard.build()`  
+    each stage in its own try/except → `run.log`  
+  || {class: code}
+
+  fillpy: ||md
+    **fill.py** — application harness  
+    - preflight: `JOBPILOT_STEALTH=1` → skip · `cdp_up()` else exit  
+    - select jobs by status (+ `--job/--limit`)  
+    - `asyncio.Semaphore(CONCURRENCY=2)` · `gather(fill_one…)`  
+    - `_to_store(res)` → (status, reason)  
+    - `store.update_apply(id, {…res, reason}, status)`  
+  || {class: code}
+
+  map: {
+    shape: sql_table
+    label: "_to_store() mapping"
+    "filled · 0 gaps": "→ ready-to-submit"
+    "filled · gaps": "→ needs-you (unfilled: …)"
+    "blocked closed|not_found": "→ closed"
+    "blocked login|captcha|…": "→ needs-you (kind: reason)"
+    "error / max_turns": "→ needs-you (agent error)"
+  }
+
+  eval: ||md
+    **eval/run_eval.py** — 15 cases, sequential  
+    Greenhouse×3 · Ashby×3 · company×4 · aggregator  
+    Google Form · Wellfound · LinkedIn · Workday  
+    pass = `filled` ∧ `unfilled_required == []`  
+    + **SUBMIT CHECK**: scan CDP `/json/list` for confirmation pages  
+    baseline 36% → run 1: **7/8 ready (88%)**  
+  || {class: code}
+
+  dash: ||md
+    **dashboard.py** → `dashboard.html`  
+    sort: ready-to-submit › form-ready › needs-you › new › closed  
+    per job: screenshot · track/resume · GUESS tags (amber) · unfilled (red) · Open tab ↗  
+  || {class: code}
+
+  legacy: ||md
+    **Legacy — retire after eval** (Plan step 8)  
+    `readers.read_form` router · `browser_reader.py` DOM JS heuristics · `drafter.py` copy-paste drafts  
+    *keep:* `readers.read_greenhouse` (now an agent tool)  
+  || {class: legacy}
+
+  fillpy -> map: "maps result" {class: w-ctl}
+}
+
+# ── discovery agent ───────────────────────────────────────────────────────────
+disc: "Discovery agent — discover.py (fresh per run)" {
+  class: agent
+  direction: down
+  opts: ||md
+    **ClaudeAgentOptions** model=`sonnet` · setting_sources=[] · no Task  
+    tools: `WebSearch` · `WebFetch` (**off** in stealth) · `submit_jobs`  
+    target ≈40 jobs · listing-level only · dedup in-context  
+    2 attempts (nudge if no `submit_jobs`)  
+  ||
+  submit: ||md
+    **submit_jobs(JobBatch)** — in-process MCP  
+    `Job{title, company, url, source, salary?, location?}`  
+  ||
+  opts -> submit: "exactly once"
+}
+
+# ── lane 3: the per-job ApplyAgent ────────────────────────────────────────────
+aa: "③ ApplyAgent — apply_agent.apply(job) · one FRESH agent stack per job" {
+  class: lane
+  direction: down
+
+  options: ||md
+    **ClaudeAgentOptions**  
+    - model=`opus` · max_turns=**120** · permission_mode=`acceptEdits`  
+    - `setting_sources=[]` · `strict_mcp_config=True` (no claude.ai connectors)  
+    - allowed: `mcp__playwright__*`, `mcp__jobpilot__*`  
+    - disallowed: Task Bash Write Edit Read WebFetch WebSearch  
+      `browser_evaluate` `browser_run_code_unsafe` `browser_close`  
+    - env `MCP_TOOL_TIMEOUT=120000` · cwd=jobpilot/  
+  || {class: agent}
+
+  prompt: ||md
+    **_system(job, shot, resumes)** — "how a careful human applies"  
+    1 open own tab (`browser_tabs new`) · 2 snapshot, find form / click Apply / follow ATS link  
+    3 login · CAPTCHA · account → `report_blocked` (never passwords)  
+    4 **FAST PATH: whole page in ONE `fill_fields` call** (text · combobox · select · checkbox · radio · file)  
+      → one snapshot → fix only NOT-OK fields by hand (click combobox → snapshot → click option)  
+    5 answers: profile + kit · JD-specific · unknown → **guess + note** · EEO → decline  
+    6 pick track → resume as `fill_fields` kind=file (fallback: Attach → `browser_file_upload`)  
+    7 Next/Continue until review · 8 verify every `*` field  
+    9 full-page screenshot → `report_filled`  **never Submit**  
+    + injects profile.md · resume.md · common answers · **memory: answer bank + platform notes**  
+    report: `answer` = exact value · `reusable` flag · `lessons` (platform tips)  
+  || {class: agent}
+
+  loop: ||md
+    **Run loop** (≤2 attempts)  
+    - `async for msg in query(prompt, options)`  
+    - init `SystemMessage`: playwright/jobpilot `failed|needs-auth` → fail fast  
+    - capture `report_*` ToolUseBlocks · `ResultMessage` cost/turns/session_id  
+    - catch `ProcessError` (CLI exits ≠0 after error_max_turns)  
+    - no report → attempt 2: `resume=session_id` + **nudge** ("screenshot and report now")  
+    - returns `{kind, report, cost_usd, turns, denials, filled_actions, log}`  
+  || {class: code}
+
+  jp: "jobpilot MCP — in-process (create_sdk_mcp_server)" {
+    class: agent
+    direction: down
+    rf: ||md
+      **report_filled(FilledReport)** — terminal  
+    ||
+    rb: ||md
+      **report_blocked(BlockedReport)** — terminal  
+    ||
+    ff: ||md
+      **fill_fields(url, fields[{label, kind, value}])**  
+      whole page in ONE call → `node quickfill.mjs` · per-field ok / NOT OK  
+      url must be a Page URL seen this run · files only from resume PDFs  
+    ||
+    gq: ||md
+      **greenhouse_questions(url)**  
+      → `readers.read_greenhouse` · exact labels/required/options + full JD  
+    ||
+    FilledReport: {
+      shape: class
+      ats: str
+      track: str
+      resume_uploaded: bool
+      resume_path: str
+      tab_url: str
+      screenshot: str
+      fields: "list[Field{label, answer, confidence: sure|guess, note, reusable}]"
+      unfilled_required: "list[str]"
+      steps_seen: int
+      lessons: "list[str]  → platform memory"
+    }
+    BlockedReport: {
+      shape: class
+      kind: "login|captcha|account_required|email_apply|closed|not_found|other"
+      reason: str
+      apply_url: str
+      email: str
+      screenshot: str
+    }
+    tight: ||md
+      `_tight()`: every prop required + `additionalProperties:false`  
+      → malformed report rejected by MCP, model retries  
+    ||
+    rf -> FilledReport
+    rb -> BlockedReport
+  }
+
+  guard: "Submit guard — class Guard (one per job)" {
+    class: guard
+    direction: down
+    Guard: {
+      shape: class
+      tab_ready: bool
+      "filled (FILL_TOOLS count)": int
+      denials: int
+      snapshot: "str (last response with [ref=)"
+      log: "artifacts/<id>.log (jsonl)"
+      uploads: "set[str] (resume PDFs only)"
+      urls: "set[str] (Page URLs seen)"
+      "+pre(inp) → allow | deny": ""
+      "+post(inp)": ""
+      "-_label_for(target) → ref line text": ""
+    }
+    rules: ||md
+      **PreToolUse** matcher `mcp__playwright__.*` — DENY when:  
+      - evaluate · run_code_unsafe · close  
+      - `browser_tabs close`  
+      - any tool before own tab opened  
+      - `browser_file_upload` of any path that isn't a resume PDF  
+      - `browser_type submit=true`  
+      - `press_key Enter` after filling  
+      - click matching **SUBMIT_RE** (submit|send|finish|complete application|confirm & apply)  
+      - click matching **APPLY_RE** once filled > 0  
+      reason is shown to the model → it stops and reports  
+    ||
+    post: ||md
+      **PostToolUse** matcher `mcp__.*`  
+      cache snapshot · record Page URLs · filled++ on type/fill_form/select/upload/**fill_fields** · log  
+    ||
+  }
+
+  pw: "Playwright MCP — stdio subprocess" {
+    class: ext
+    direction: down
+    cmd: ||md
+      `npx -y @playwright/mcp@0.0.82`  
+      `--cdp-endpoint http://localhost:9222`  
+      `--output-dir artifacts` · `--allow-unrestricted-file-access`  
+    ||
+    tools: ||md
+      **25 tools**, elements addressed by `target=eN` from aria snapshot  
+      `browser_tabs` · `browser_navigate` · `browser_snapshot`  
+      `browser_click` · `browser_type` · `browser_fill_form`  
+      `browser_select_option` (native select only) · `browser_press_key`  
+      `browser_file_upload{paths}` (needs open file chooser)  
+      `browser_take_screenshot{fullPage}` · `browser_wait_for` …  
+    ||
+  }
+
+  loop -> options: "query(options)" {class: w-ctl}
+  options -> prompt: "system_prompt" {class: w-agent}
+  options -> jp: "mcp_servers.jobpilot" {class: w-agent}
+  options -> pw: "mcp_servers.playwright" {class: w-agent}
+  options -> guard: "hooks" {class: w-guard}
+  guard -> pw: "every mcp__playwright__* call\npasses PreToolUse first" {class: w-guard}
+}
+
+# ── lane 4: runtime + outside world ───────────────────────────────────────────
+world: "④ Runtime, browser & web" {
+  class: lane
+  direction: down
+
+  cli: ||md
+    **Claude Code CLI** (bundled 2.1.277) — spawned per `query()`  
+    auth: stored **OAuth** login (Team seat) · no API key  
+  || {class: agent}
+
+  model: ||md
+    **Anthropic API** — Claude **Opus** (apply) · **Sonnet** (discover)  
+  || {class: ext}
+
+  quickfill: ||md
+    **quickfill/quickfill.mjs** — Node · `playwright-core 1.64.0-alpha` (same build as the MCP)  
+    - 2nd CDP connection `connectOverCDP(…, {noDefaults: true})` · newest tab matching the URL  
+    - files first (Ashby autofill re-renders) · skips the "Autofill from resume" input  
+    - custom combobox: click → type → pick option (exact › prefix › contains)  
+    - read-back pass → `lost` if a value didn't stick  
+    - **never clicks buttons/links, never presses Enter**, refuses submit-like labels  
+  || {class: code}
+
+  chrome: "Agent Chrome — browser.sh start|status|stop" {
+    class: ext
+    direction: down
+    proc: ||md
+      Chrome 153 (headed) · `--remote-debugging-port=9222`  
+      `--user-data-dir ~/.jobpilot-chrome` (Chrome ≥136 refuses CDP on default profile)  
+      pid → `artifacts/chrome.pid`  
+    ||
+    sessions: ||md
+      **Logged-in sessions** (you, once)  
+      LinkedIn · Wellfound · Google · Workday  
+    || {class: human}
+    tabs: ||md
+      **One tab per job** — outlives the agent  
+      MCP only disconnects → filled form stays open  
+    ||
+  }
+
+  web: "The web" {
+    class: ext
+    direction: down
+    ats: "ATS forms\nGreenhouse · Ashby · Lever · Workday"
+    company: "Company career sites"
+    other: "Google Forms · aggregators\nLinkedIn · Wellfound"
+    ghapi: "Greenhouse boards API\n(questions + JD JSON)"
+    boards: "Job boards · target careers\nRemoteOK · Remotive · HN hiring"
+  }
+}
+
+# ── bottom: state, artifacts, you ────────────────────────────────────────────
+state: "⑤ State & artifacts (local only — never pushed)" {
+  class: lane
+  direction: right
+
+  db: {
+    shape: sql_table
+    label: "store.db — table jobs (SQLite, WAL)"
+    id: "TEXT PK  (dedup hash company|title|norm url)"
+    title: TEXT
+    company: TEXT
+    url: TEXT
+    source: TEXT
+    status: "TEXT  new | ready-to-submit | needs-you | closed | form-ready*"
+    first_seen: TEXT
+    last_seen: TEXT
+    extra: "JSON  salary · location · form* · apply{kind, report, cost, turns, reason}"
+  }
+
+  art: ||md
+    **artifacts/**  
+    - `<id>.png` full-page screenshot  
+    - `<id>.log` jsonl tool calls + DENY lines  
+    - `<id>.result.json` (single-job CLI)  
+    - `chrome.pid` · `chrome.log` · console logs  
+  || {class: data}
+
+  mem: ||md
+    **memory.json** — human-editable  
+    - `answers`: label → [{answer, companies[], updated}] (sure + reusable only)  
+    - `platforms`: ats → lessons (≤20, newest kept)  
+    - seeded from 7 past reports · `python3 memory.py --seed`  
+  || {class: data}
+
+  evres: ||md
+    **eval/**  
+    `eval_set.json` (15 cases)  
+    `results-<date>.json`  
+  || {class: data}
+
+  html: ||md
+    **dashboard.html**  
+    Ready to submit · Needs you · stats  
+  || {class: data}
+}
+
+you: ||md
+  # You
+  1. open **dashboard.html**  
+  2. check amber **GUESS** answers  
+  3. **Open tab ↗** → review the filled form  
+  4. **click Submit** — the only submitter  
+|| {class: human}
+
+# ── wires ─────────────────────────────────────────────────────────────────────
+inputs.launchd -> orch.run: "08:00" {class: w-ctl}
+inputs.cli -> orch.run {class: w-ctl}
+inputs.cli -> orch.fillpy {class: w-ctl}
+inputs.cli -> orch.eval {class: w-ctl}
+
+orch.run -> disc: "1 discover()" {class: w-ctl}
+orch.run -> orch.fillpy: "2 fill()" {class: w-ctl}
+orch.run -> orch.dash: "3 build()" {class: w-ctl}
+
+inputs.kb.profile -> disc: "profile" {class: w-data}
+inputs.kb.targets -> disc: "targets" {class: w-data}
+disc -> world.web.boards: "WebSearch / WebFetch" {class: w-agent}
+disc -> state.db: "store.add_jobs() → new / dupe" {class: w-data}
+
+state.db -> orch.fillpy: "list_jobs() by status" {class: w-data}
+orch.fillpy -> aa.loop: "apply(job) × up to 2 in parallel" {class: w-ctl}
+orch.eval -> aa.loop: "apply(case) sequential" {class: w-ctl}
+aa.loop -> orch.fillpy: "result dict" {class: w-ctl}
+orch.fillpy -> state.db: "update_apply() → extra.apply + status" {class: w-data}
+orch.eval -> state.evres: "results json" {class: w-data}
+orch.eval -> world.chrome.tabs: "SUBMIT CHECK /json/list" {class: w-cdp}
+
+inputs.kb.profile -> aa.prompt: "injected" {class: w-data}
+inputs.kb.resume_md -> aa.prompt: "injected" {class: w-data}
+inputs.kb.kit -> aa.prompt: "injected" {class: w-data}
+inputs.kb.pdfs -> aa.prompt: "resume_options()" {class: w-data}
+
+aa.loop -> world.cli: "spawns CLI subprocess" {class: w-agent}
+world.cli <-> world.model: "turns · tool calls" {class: w-agent}
+world.cli -> aa.pw: "spawns stdio MCP" {class: w-agent}
+world.cli -> aa.guard: "runs hooks" {class: w-guard}
+aa.pw -> world.chrome: "CDP WebSocket :9222" {class: w-cdp}
+world.chrome.tabs -> world.web.ats: "navigate · fill · upload" {class: w-cdp}
+world.chrome.tabs -> world.web.company {class: w-cdp}
+world.chrome.tabs -> world.web.other {class: w-cdp}
+aa.jp.gq -> world.web.ghapi: "HTTPS" {class: w-ctl}
+aa.jp.ff -> world.quickfill: "subprocess · JSON stdin/stdout" {class: w-ctl}
+world.quickfill -> world.chrome.tabs: "2nd CDP connection" {class: w-cdp}
+state.mem -> aa.prompt: "prompt_section()" {class: w-data}
+aa.loop -> state.mem: "memory.learn() after filled" {class: w-data}
+aa.loop -> world.chrome.tabs: "close_stale_tabs() (re-runs)" {class: w-cdp}
+aa.pw -> state.art: "<id>.png screenshot" {class: w-data}
+aa.guard -> state.art: "<id>.log" {class: w-data}
+
+state.db -> orch.dash: "extra.apply" {class: w-data}
+state.art -> orch.dash: "screenshots" {class: w-data}
+orch.dash -> state.html {class: w-data}
+state.html -> you: "review" {class: w-human}
+you -> world.chrome.tabs: "Open tab ↗ → click Submit" {class: w-human}
+you -> world.chrome.sessions: "log in once" {class: w-human}
+
+legend: ||md
+  **Legend**  
+  🟦 deterministic code · 🟪 Claude agent · 🟥 safety guard · 🟨 data/artifacts · 🟩 you · ⬜ external · ┄ legacy  
+  wires: blue = control · violet = agent/model · black = CDP/browser · amber dashed = data · red = guard · green = you  
+|| {near: bottom-center}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+layers: {
+  # ─────────────────────────────────────────────────────────────────────────────
+  runtime: {
+    direction: right
+    title: ||md
+      # Runtime — processes & parallelism
+      One Python process · per job: 1 Claude CLI + 1 Playwright MCP · all share ONE Chrome over CDP · Semaphore(2)  
+    || {near: top-center}
+
+    py: "python3 fill.py (asyncio event loop)" {
+      class: code
+      direction: down
+      sem: "asyncio.Semaphore(CONCURRENCY=2)\nqueue: jobs with status new (+ --redo)"
+      w1: "fill_one(job A)\napply_agent.apply()\nGuard A (own state, own log)" {class: guard}
+      w2: "fill_one(job B)\napply_agent.apply()\nGuard B (own state, own log)" {class: guard}
+      wq: "job C … waiting on semaphore" {class: legacy}
+      sem -> w1
+      sem -> w2
+      sem -> wq
+      jpA: "jobpilot MCP A (in-process)" {class: agent}
+      jpB: "jobpilot MCP B (in-process)" {class: agent}
+      w1 -> jpA
+      w2 -> jpB
+    }
+
+    cliA: "claude CLI #A (subprocess)\nOAuth · model opus" {class: agent}
+    cliB: "claude CLI #B (subprocess)\nOAuth · model opus" {class: agent}
+    pwA: "npx @playwright/mcp #A\n(stdio, child of CLI A)" {class: ext}
+    pwB: "npx @playwright/mcp #B\n(stdio, child of CLI B)" {class: ext}
+    api: "Anthropic API" {class: ext}
+
+    chrome: "Agent Chrome :9222 (~/.jobpilot-chrome) — ONE shared browser" {
+      class: ext
+      direction: down
+      tA: "tab A — job A form"
+      tB: "tab B — job B form"
+      tOld: "tabs from earlier runs\n(filled, waiting for you)" {class: human}
+    }
+
+    py.w1 -> cliA: "stdin/stdout JSON stream\n+ hook callbacks" {class: w-agent}
+    py.w2 -> cliB: "stdin/stdout JSON stream\n+ hook callbacks" {class: w-agent}
+    cliA -> api {class: w-agent}
+    cliB -> api {class: w-agent}
+    cliA -> pwA: "stdio MCP" {class: w-agent}
+    cliB -> pwB: "stdio MCP" {class: w-agent}
+    pwA -> chrome.tA: "CDP WebSocket" {class: w-cdp}
+    pwB -> chrome.tB: "CDP WebSocket" {class: w-cdp}
+
+    note: ||md
+      **Scaling to 4+** (pending): add `--disable-background-timer-throttling`  
+      `--disable-renderer-backgrounding` `--disable-backgrounding-occluded-windows`  
+      to browser.sh, then raise `CONCURRENCY`. Background tabs otherwise get throttled.  
+      Isolation: each job has its own tab, Guard state, log and CLI session.  
+    || {class: data; near: bottom-center}
+  }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  apply-sequence: {
+    title: ||md
+      # One application, end to end
+      fill.py → ApplyAgent → Guard → Playwright → Chrome → ATS … → you click Submit  
+    || {near: top-center}
+
+    seq: "" {
+      shape: sequence_diagram
+      fillpy: "fill.py" {class: code}
+      loop: "apply() run loop" {class: code}
+      cli: "Claude CLI + Opus" {class: agent}
+      guard: "Guard hooks" {class: guard}
+      pw: "Playwright MCP" {class: ext}
+      chrome: "Agent Chrome tab" {class: ext}
+      ats: "ATS site" {class: ext}
+      jp: "jobpilot MCP" {class: agent}
+      store: "store.db" {class: data}
+      you: "You" {class: human}
+
+      fillpy -> loop: "apply(job)  [semaphore slot]"
+      loop -> cli: "query(first prompt, options)"
+      cli -> loop: "SystemMessage init — check MCP status"
+
+      open: "1 · open own tab" {
+        cli -> guard: "PreToolUse browser_tabs{new, url}"
+        guard -> cli: "allow · tab_ready = true"
+        cli -> pw: "browser_tabs new"
+        pw -> chrome: "CDP: new target"
+        chrome -> ats: "GET job url"
+      }
+
+      find: "2 · find the form" {
+        cli -> pw: "browser_snapshot (aria tree, [ref=eN])"
+        pw -> guard: "PostToolUse: cache snapshot"
+        cli -> jp: "greenhouse_questions(url)  [Greenhouse only]"
+        jp -> cli: "labels · required · options · JD"
+        cli -> guard: "PreToolUse click 'Apply' (filled = 0)"
+        guard -> cli: "allow — opens the form"
+      }
+
+      blocked: "alt · login wall / CAPTCHA / account / email-only / closed" {
+        cli -> jp: "report_blocked{kind, reason, …}"
+      }
+
+      fillf: "3–7 · FAST PATH — whole page in ONE call (memory supplies the answers)" {
+        cli -> jp: "fill_fields{url, fields: [text · combobox · radio · file …]}"
+        jp -> chrome: "quickfill.mjs over 2nd CDP connection: resume first, then every field"
+        jp -> cli: "14/14 ok · or NOT OK list"
+        jp -> guard: "PostToolUse: filled++ · log"
+        cli -> pw: "ONE browser_snapshot to verify"
+        cli -> pw: "fallback for NOT OK only: click combobox → snapshot → click option"
+        cli -> pw: "click Next / Continue (multi-step → one fill_fields per step)"
+      }
+
+      stop: "8 · the guard stops Submit" {
+        cli -> guard: "PreToolUse click 'Submit application'"
+        guard -> cli: "DENY — 'reserved for the human'" {style.stroke: "#e02424"}
+      }
+
+      finish: "9 · screenshot + report" {
+        cli -> pw: "browser_take_screenshot{fullPage} → artifacts/<id>.png"
+        cli -> jp: "report_filled{fields, guesses, unfilled_required, lessons…}"
+        cli -> loop: "ResultMessage (cost, turns, session_id)"
+      }
+
+      retry: "alt · no report after attempt 1" {
+        loop -> cli: "query(nudge, resume=session_id)"
+      }
+
+      loop -> store: "memory.learn(): reusable answers + lessons → memory.json"
+      loop -> fillpy: "{kind, report, cost, turns, denials}"
+      fillpy -> store: "update_apply() · status via _to_store()"
+      store -> you: "dashboard.html: READY TO SUBMIT"
+      you -> chrome: "review the open tab · click Submit"
+      chrome -> ats: "POST application (human only)"
+    }
+  }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  submit-guard: {
+    direction: down
+    title: ||md
+      # Submit guard — Guard.pre() decision flow  
+      Deterministic code, not the prompt. Fires on every `mcp__playwright__*` call, even allowed tools. Checks run top to bottom; first DENY wins.  
+    || {near: top-center}
+
+    call: "PreToolUse(tool_name, tool_input)\nhook matcher mcp__playwright__.*" {class: agent}
+    q1: "browser_evaluate · run_code_unsafe · close?" {shape: diamond; class: code}
+    q2: "browser_tabs action = close?" {shape: diamond; class: code}
+    q2b: "browser_tabs new | select?" {shape: diamond; class: code}
+    q3: "tab_ready?" {shape: diamond; class: code}
+    qu: "browser_file_upload of a path\nthat isn't a resume PDF?" {shape: diamond; class: code}
+    du: "DENY\n'Only the candidate's resume PDFs may be uploaded'" {class: guard}
+    q4: "browser_type with submit=true?" {shape: diamond; class: code}
+    q5: "press_key Enter AND filled > 0?" {shape: diamond; class: code}
+    q6: "browser_click?" {shape: diamond; class: code}
+    lbl: "text = element  +  _label_for(target)\n(the ref's line from the cached snapshot)" {class: code}
+    q7: "SUBMIT_RE?\nsubmit · send · finish ·\ncomplete application · confirm & apply" {shape: diamond; class: code}
+    q8: "filled > 0 AND APPLY_RE?\nApply · Apply now · Easy Apply" {shape: diamond; class: code}
+
+    d1: "DENY\n'not permitted in this run'" {class: guard}
+    d2: "DENY\n'Never close tabs — the human reviews them'" {class: guard}
+    d3: "DENY\n'First open your own tab: browser_tabs new'" {class: guard}
+    d4: "DENY\n'Type without submit=true'" {class: guard}
+    d5: "DENY\n'Enter can submit the form'" {class: guard}
+    d7: "DENY\n'Final submission is reserved for the human.\nScreenshot and call report_filled now.'" {class: guard}
+    d8: "DENY\n(Apply after filling = submit on some ATSes)" {class: guard}
+    tab: "tab_ready = true → ALLOW" {class: human}
+    allow: "ALLOW → Playwright MCP runs the tool" {class: human}
+
+    post: ||md
+      **PostToolUse** (`mcp__.*`)  
+      - response has `[ref=` → cache as snapshot  
+      - FILL_TOOLS (type · fill_form · select_option · file_upload · **fill_fields**) → `filled++`  
+      - record every `Page URL:` → fill_fields may only target those tabs  
+      - append jsonl `{ev, tool, input, t}` to `artifacts/<id>.log`  
+    || {class: data}
+
+    effect: ||md
+      **Every DENY**  
+      `permissionDecision: "deny"` + reason → shown to the model  
+      `denials++` · `DENY` line in `<id>.log`  
+    || {class: guard}
+
+    call -> q1
+    q1 -> d1: yes {class: w-guard}
+    q1 -> q2: no
+    q2 -> d2: yes {class: w-guard}
+    q2 -> q2b: no
+    q2b -> tab: yes {class: w-human}
+    q2b -> q3: no
+    q3 -> d3: no {class: w-guard}
+    q3 -> qu: yes
+    qu -> du: yes {class: w-guard}
+    qu -> q4: no
+    q4 -> d4: yes {class: w-guard}
+    q4 -> q5: no
+    q5 -> d5: yes {class: w-guard}
+    q5 -> q6: no
+    q6 -> allow: "no (type · snapshot · upload …)" {class: w-human}
+    q6 -> lbl: yes
+    lbl -> q7
+    q7 -> d7: yes {class: w-guard}
+    q7 -> q8: no
+    q8 -> d8: yes {class: w-guard}
+    q8 -> allow: "no (Next · Continue · Attach · option …)" {class: w-human}
+    allow -> post: "after the tool returns"
+
+    also: ||md
+      **Belt and braces**  
+      - `disallowed_tools`: evaluate · run_code_unsafe · close · Bash · Write · Task…  
+      - prompt step 9: never Submit  
+      - eval **SUBMIT CHECK** scans every tab for "thank you for applying"  
+      - `fill_fields` (not a Playwright tool, so no PreToolUse): quickfill never clicks buttons or presses Enter, refuses submit-like labels, uploads only resume PDFs  
+      - Chrome tabs are never closed → you see exactly what was filled  
+    || {class: data}
+  }
+
+  status-lifecycle: {
+    direction: right
+    title: ||md
+      # Job status lifecycle (store.jobs.status)
+    || {near: top-center}
+
+    new: "new\n(discover → add_jobs)" {class: code}
+    ready: "ready-to-submit\nfilled · 0 unfilled required\ntab open + screenshot" {class: human}
+    needs: "needs-you\nblocked login/captcha/account/email\nor gaps · or agent error" {class: guard}
+    closed: "closed\nlisting gone / not found" {class: ext}
+    formready: "form-ready (legacy)\nold reader + drafter" {class: legacy}
+    applied: "applied (planned)\nafter you click Submit" {class: legacy}
+
+    new -> ready: "fill.py · filled, no gaps" {class: w-agent}
+    new -> needs: "blocked / gaps / error" {class: w-agent}
+    new -> closed: "blocked closed|not_found" {class: w-agent}
+    needs -> ready: "you log in / fix → fill.py --status needs-you" {class: w-human}
+    formready -> ready: "fill.py --redo" {class: w-agent}
+    formready -> needs: "fill.py --redo" {class: w-agent}
+    ready -> applied: "you Submit (future: mark in dashboard)" {class: w-human}
+    new -> new: "discover again → dupe, last_seen updated" {class: w-data}
+  }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  memory-fastpath: {
+    direction: right
+    title: ||md
+      # Memory + one-call fill — how the agent stops re-doing work  
+      **Before:** every job filled from scratch — each custom dropdown = click → snapshot → click (Job A: 60 tool calls, 43 on 13 dropdowns).  
+      **Now:** memory supplies the answers, `fill_fields` fills the whole page in ONE call, the agent only verifies and fixes what failed, then teaches memory.  
+    || {near: top-center}
+
+    # ── ① READ memory before the run ─────────────────────────────────────────
+    recall: "① Recall — before the agent starts" {
+      class: lane
+      direction: down
+
+      mem: ||md
+        **memory.json** (human-editable)  
+        `answers`: normalized label → variants  
+        `{answer, label, companies[≤5], updated}`  
+        `platforms`: ats → lessons (≤20, newest kept)  
+        *today: 31 questions · greenhouse 9 notes · ashby 3*  
+      || {class: data; shape: cylinder}
+
+      seed: ||md
+        **memory.py --seed** (one-off)  
+        backfill from the 7 ready-to-submit reports in store.db  
+        + hand-written SEED_LESSONS (greenhouse, ashby)  
+      || {class: code}
+
+      you_edit: ||md
+        **You** fix a wrong answer in memory.json  
+        → every future job uses the fix  
+      || {class: human}
+
+      section: ||md
+        **memory.prompt_section()**  
+        - answer bank: top 120 by use, up to 3 variants each  
+          `"Visa sponsorship?" → "Yes" (Job E) | "No" (Job A)`  
+        - "reuse only if it fits THIS job" (country-dependent answers)  
+        - platform notes per ATS  
+      || {class: code}
+
+      stale: ||md
+        **close_stale_tabs(job.url)**  
+        closes tabs left by an earlier run of the same job  
+        → the new tab is the only match for fill_fields  
+      || {class: code}
+
+      seed -> mem: "writes" {class: w-data}
+      you_edit -> mem: "edits" {class: w-human}
+      mem -> section: "load()" {class: w-data}
+    }
+
+    # ── ② the agent run ──────────────────────────────────────────────────────
+    run: "② ApplyAgent run (Opus)" {
+      class: lane
+      direction: down
+
+      prompt: ||md
+        **System prompt**  
+        profile · resume · standard answers  
+        **+ memory section**  
+        step 4 = FAST PATH  
+      || {class: agent}
+
+      snap: ||md
+        **browser_snapshot** (Playwright MCP)  
+        + `greenhouse_questions` on Greenhouse  
+        → every field's visible label  
+      || {class: ext}
+
+      plan: ||md
+        **Agent builds ONE request**  
+        each field: label (without `*`) · kind · value  
+        values from answer bank · profile · JD-specific writing  
+        resume = `resumes/<track>.pdf` as kind=file  
+      || {class: agent}
+
+      verify: ||md
+        **ONE browser_snapshot** to verify  
+        fix only NOT OK fields by hand  
+        (click combobox → snapshot → click option)  
+        multi-step form → one fill_fields per step  
+      || {class: agent}
+
+      report: ||md
+        **report_filled**  
+        `answer` = exact value typed · `reusable` flag  
+        `lessons`: 0-5 platform tips that would have saved calls  
+      || {class: agent}
+
+      prompt -> snap -> plan {class: w-agent}
+      verify -> report {class: w-agent}
+    }
+
+    # ── ③ fill_fields: the one call ──────────────────────────────────────────
+    ff: "③ fill_fields — whole page in ONE tool call" {
+      class: lane
+      direction: down
+
+      tool: ||md
+        **mcp__jobpilot__fill_fields(url, fields[])** — in-process Python  
+        `FillItem{label, kind: text|combobox|select|checkbox|radio|file, value}`  
+      || {class: agent}
+
+      checks: "Python checks (trust boundary)" {
+        class: guard
+        direction: down
+        c1: "tab_ready? (own tab opened first)"
+        c2: "url ∈ guard.urls\n(host+path of a Page URL seen this run)"
+        c3: "files_allowed = resume PDFs only\n(~/.ssh/id_rsa → refused)"
+        c1 -> c2 -> c3
+      }
+
+      node: "node quickfill/quickfill.mjs — JSON stdin → stdout, 180 s timeout" {
+        class: code
+        direction: down
+        attach: ||md
+          **connectOverCDP(:9222, {noDefaults: true})**  
+          playwright-core **1.64.0-alpha** = the MCP's build (1.63 can't attach to Chrome 153)  
+          newest tab whose host+path matches · `bringToFront()` (unthrottle)  
+        ||
+        order: ||md
+          **files first**, then wait for network idle  
+          (Ashby re-renders after upload) · skip the *Autofill from resume* input  
+        ||
+        kinds: ||md
+          **per kind**  
+          text → `fill` · select → `selectOption`  
+          combobox → click · type · pick option (exact › prefix › shortest contains)  
+          radio → group by question, pick option · checkbox → setChecked  
+          file → `setInputFiles` on the input nearest the label  
+        ||
+        readback: ||md
+          **read-back pass** — re-read every text value  
+          didn't stick → status `lost` (phones compared by digits)  
+        ||
+        never: ||md
+          **Never** clicks buttons/links · **never** presses Enter  
+          refuses labels/options matching SUBMIT_RE · exits without closing the tab  
+        || {class: guard}
+        attach -> order -> kinds -> readback
+      }
+
+      result: ||md
+        **Result to the agent**  
+        `14/14 fields ok.` or  
+        `- NOT OK [no_option] Country: options: …`  
+        + "take ONE snapshot, fix only these"  
+      || {class: agent}
+
+      tool -> checks -> node -> result
+    }
+
+    chrome: "Agent Chrome :9222 — the job's tab" {
+      class: ext
+      tab: "form filled · resume attached\nSubmit button untouched"
+    }
+
+    # ── ④ WRITE memory after the run ─────────────────────────────────────────
+    learn: "④ Learn — after a filled run" {
+      class: lane
+      direction: down
+
+      fn: ||md
+        **memory.learn(company, report, url)**  
+        sync + one atomic write (tmp → replace) — parallel jobs can't interleave  
+      || {class: code}
+
+      keep: {
+        shape: sql_table
+        label: "_keep(field) — what may enter memory"
+        "confidence": "== sure (never guesses)"
+        "reusable": "== true (agent's call)"
+        "length": "≤ 200 chars (no essays)"
+        "company name": "not in label/answer"
+        "annotations": "no 'essay', 'custom', '(rendered…'"
+        "label": "not resume / cv / cover letter"
+      }
+
+      lessons: ||md
+        **lessons → platforms[ats_key]**  
+        ats from report or URL (greenhouse · ashby · lever · workday …)  
+        dedup case-insensitive · keep newest 20  
+      || {class: code}
+
+      fn -> keep: "answers" {class: w-data}
+      fn -> lessons: "lessons" {class: w-data}
+    }
+
+    # ── wires between lanes ──────────────────────────────────────────────────
+    recall.section -> run.prompt: "injected" {class: w-data}
+    recall.stale -> chrome: "CDP /json/close" {class: w-cdp}
+    run.plan -> ff.tool: "one call" {class: w-agent}
+    ff.node.kinds -> chrome.tab: "2nd CDP connection" {class: w-cdp}
+    ff.result -> run.verify {class: w-agent}
+    run.report -> learn.fn: "kind == filled" {class: w-data}
+    learn.keep -> recall.mem: "upsert variant" {class: w-data}
+    learn.lessons -> recall.mem: "append" {class: w-data}
+
+    numbers: {
+      shape: sql_table
+      label: "Measured (same jobs, before → after)"
+      "Job A (Greenhouse)": '70 turns · $2.87  →  11 turns · $0.61'
+      "Job B (Greenhouse)": '34 turns · $1.26  →  10 turns · $0.53'
+      "Job C (Greenhouse)": '30 turns · $1.11  →  10 turns · $0.45'
+      "Job D (Ashby)": '41 turns · $1.76  →  11 turns · $0.63'
+      "Job E (Ashby)": '20 turns · $0.82  →  22 turns · $0.92 (Yes/No buttons: manual)'
+      "Total, 5 jobs": '195 turns · $7.82  →  64 turns · $3.13  (−67% turns, −60% cost) · 5/5 pass · 0 submitted'
+    }
+
+    lessons_seen: ||md
+      **Lessons the agent already wrote itself**  
+      - background tab → clicks time out: `browser_tabs select` once  
+      - pick phone Country before typing the number (formatter)  
+      - Greenhouse resume: the visible *Attach* button, not the hidden input  
+    || {class: data}
+  }
+}

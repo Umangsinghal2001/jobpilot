@@ -1,0 +1,6 @@
+{
+  "min_battery": 50,
+  "max_idle_min": 5,
+  "daily_cap_usd": 0.0,
+  "auto_detect": true
+}

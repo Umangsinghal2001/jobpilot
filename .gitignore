@@ -1,0 +1,27 @@
+# rebuildable
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+web/dist/
+# run output and personal data: never commit
+artifacts/
+*.log
+*.out
+dashboard.html
+store.db*
+memory.json
+memory.tmp
+secrets/
+.env
+*.env
+.playwright-mcp/
+.ua/
+eval/eval_set.json
+eval/results-*.json
+# built from the example resume
+example-profile/resume/resume.*
+!example-profile/resume/resume.yaml
+example-profile/resume/versions/*
+!example-profile/resume/versions/.gitkeep

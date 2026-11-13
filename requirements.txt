@@ -1,0 +1,10 @@
+claude-agent-sdk>=0.2.80,<0.3
+pydantic>=2
+playwright>=1.45          # browser form reader; then run: playwright install chromium
+# store.py is stdlib-only (sqlite3). The agent also needs the Claude Code CLI:
+#   npm install -g @anthropic-ai/claude-code   (then `claude` to log in with Pro/Max)
+fastapi>=0.115
+uvicorn[standard]>=0.30     # includes websockets (live screen) 
+google-api-python-client==2.201.0
+google-auth-oauthlib==1.5.0
+pyyaml>=6

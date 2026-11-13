@@ -1,0 +1,28 @@
+:root { --bg: #fbfbf8; --fg: #1b1b1a; --muted: #6b6b66; --line: #e4e3dc; --card: #fff;
+  --del: #b42318; --del-bg: #fdecea; --ins: #116149; --ins-bg: #e3f5ec; --warn: #8a4b00; --warn-bg: #fff2d9; --accent: #1d44c8; }
+@media (prefers-color-scheme: dark) { :root { --bg: #151515; --fg: #ecebe6; --muted: #9b9a93; --line: #2c2c2a; --card: #1e1e1d;
+  --del: #ff8a80; --del-bg: #3a1a17; --ins: #7ee2b8; --ins-bg: #12301f; --warn: #ffcf7a; --warn-bg: #3a2c10; --accent: #8fa8ff; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.5 system-ui, sans-serif; }
+main { padding: 12px 14px 40px; }
+h1 { font-size: 15px; margin: 0; } h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 6px; }
+h3 { font-size: 13px; margin: 0 0 6px; }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 8px 0; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+.warn { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+.ok { color: var(--ins); }
+del { color: var(--del); background: var(--del-bg); text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+ins { color: var(--ins); background: var(--ins-bg); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+ul { margin: 0; padding-left: 16px; } li { margin: 4px 0; }
+li.kept { color: var(--muted); }
+.tag { display: inline-block; font-size: 11px; border-radius: 10px; padding: 0 7px; margin-left: 4px; border: 1px solid var(--line); color: var(--muted); }
+.chip { display: inline-block; border-radius: 10px; padding: 1px 8px; margin: 2px 3px 2px 0; font-size: 12px; }
+.chip.add { background: var(--ins-bg); color: var(--ins); } .chip.rm { background: var(--del-bg); color: var(--del); text-decoration: line-through; }
+details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 4px; }
+#prompts { padding: 0 14px 40px; border-top: 1px solid var(--line); }
+#prompts textarea { width: 100%; height: 60vh; font: 12px/1.45 ui-monospace, monospace; background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 8px; }
+button.on { border-color: var(--accent); color: var(--accent); }

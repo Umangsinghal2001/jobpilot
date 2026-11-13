@@ -1,0 +1,97 @@
+# verified: 2026-10-03 (no git — drift = any covered file newer than this doc)
+# covers: [memory.py, memory.json, quickfill/, apply_agent.py, fill.py, eval/run_eval.py, browser.sh]
+#
+# C4 L2 — every process and store the memory layer runs in or touches, and how they talk.
+# Render: d2 --layout=tala containers.d2 /tmp/containers.svg
+
+vars: {d2-config: {layout-engine: tala; theme-id: 0; pad: 30}}
+classes: {
+  py: {style: {fill: "#e8f0fe"; stroke: "#1a56db"; font-color: "#0b2a6b"; border-radius: 6}}
+  agent: {style: {fill: "#f1e8ff"; stroke: "#7e3af2"; font-color: "#3b0f86"; border-radius: 6}}
+  guard: {style: {fill: "#fde8e8"; stroke: "#e02424"; font-color: "#771d1d"; stroke-width: 2; border-radius: 6}}
+  node: {style: {fill: "#ecfdf5"; stroke: "#047857"; font-color: "#064e3b"; border-radius: 6}}
+  data: {shape: cylinder; style: {fill: "#fdf6b2"; stroke: "#c27803"; font-color: "#633112"}}
+  ext: {style: {fill: "#f3f4f6"; stroke: "#6b7280"; font-color: "#1f2937"; border-radius: 6}}
+  human: {shape: person; style: {fill: "#def7ec"; stroke: "#0e9f6e"; font-color: "#014737"}}
+}
+direction: right
+
+title: |md
+  # L2 · Containers — where the memory layer lives
+  One Python process per batch · per job: 1 Claude CLI + 1 Playwright MCP + **1 short-lived Node quickfill per `fill_fields` call** · one shared Chrome  
+| {near: top-center}
+
+# ── the Python process ──────────────────────────────────────────────────────
+py: "Python process — fill.py / eval/run_eval.py / apply_agent.py <id>  (.venv, asyncio)" {
+  class: py
+  direction: down
+
+  apply: |md
+    **apply_agent.apply(job)**  
+    `close_stale_tabs` → build prompt → `query()` ×≤2 → `memory.learn` if filled  
+  | {class: py}
+
+  mem: |md
+    **memory.py**  
+    `load` · `prompt_section` · `learn` · `_keep` · `_names` · `ats_key`  
+    pure functions + one atomic file write  
+  | {class: py}
+
+  jp: |md
+    **jobpilot MCP (in-process)**  
+    `fill_fields` · `report_filled` · `report_blocked` · `greenhouse_questions`  
+  | {class: agent}
+
+  guard: |md
+    **Guard** (one per job)  
+    `pre`: deny submit-like · upload lock (resume PDFs only)  
+    `post`: record `Page URL`s · `filled++` (incl. fill_fields) · jsonl log  
+  | {class: guard}
+
+  apply -> mem: "prompt_section() · learn()"
+  apply -> jp: "registers tools"
+  apply -> guard: "hooks"
+  jp -> guard: "reads tab_ready · urls · uploads"
+}
+
+cli: |md
+  **Claude Code CLI** (subprocess per `query()`)  
+  Opus · OAuth · hermetic options  
+| {class: agent}
+api: "Anthropic API" {class: ext}
+
+pw: |md
+  **Playwright MCP 0.0.82** (stdio, child of CLI)  
+  snapshot · click · type · tabs …  
+| {class: ext}
+
+qf: |md
+  **node quickfill/quickfill.mjs** (subprocess per call)  
+  `playwright-core 1.64.0-alpha` (= the MCP's build)  
+  `connectOverCDP(:9222, {noDefaults: true})`  
+  stdin JSON → stdout JSON · 180 s timeout  
+| {class: node}
+
+chrome: |md
+  **Agent Chrome** :9222 · `~/.jobpilot-chrome`  
+  one tab per job · outlives every run  
+| {class: ext}
+
+memjson: "memory.json\n(human-editable, atomic writes)" {class: data}
+store: "store.db\njobs.extra.apply" {class: data}
+art: "artifacts/<id>.log\n(jsonl incl. fill_fields output)" {class: data}
+you: "You" {class: human}
+
+py.mem <-> memjson: "load() · _save() tmp→replace"
+py.apply <-> cli: "stream-json + hook callbacks + in-process MCP calls"
+cli <-> api: "HTTPS"
+cli -> pw: "stdio MCP"
+pw -> chrome: "CDP WebSocket #1"
+py.jp -> qf: "spawn · JSON over stdin/stdout"
+qf -> chrome: "CDP WebSocket #2 (same tab, newest URL match)"
+py.apply -> chrome: "HTTP /json/list · /json/close (stale tabs)"
+py.guard -> art: "append"
+py.apply -> store: "via fill.py: update_apply()"
+store -> py.mem: "--seed (one-off backfill)" {style.stroke-dash: 4}
+you -> memjson: "edit / correct"
+you -> chrome: "review · Submit"

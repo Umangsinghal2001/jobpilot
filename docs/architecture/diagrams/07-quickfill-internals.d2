@@ -1,0 +1,100 @@
+# verified: 2026-10-03 · covers: [quickfill/quickfill.mjs]
+...@_style
+direction: down
+
+title: |md
+  # 7 · Inside quickfill.mjs
+  never clicks buttons / links · never presses Enter · exits without closing the tab
+| {near: top-center}
+
+start: "stdin JSON\n{url, fields[], files_allowed}" {class: py}
+connect: "connectOverCDP(:9222, {noDefaults: true})" {class: node}
+tab: "tab = newest page with same host+path\nelse newest with prefix match" {class: q}
+notab: "{ok: 0, error, tabs[]}" {class: bad}
+front: "bringToFront()\nsort: file fields first" {class: node}
+each: "next field" {class: node}
+settle: "after an upload: wait network idle + 1.5 s\n(Ashby re-renders the form)" {class: node}
+sub: "label matches SUBMIT_RE?\nsubmit · send · finish · complete application · confirm & apply" {class: q}
+refused1: "refused" {class: bad}
+kind: "kind?" {class: q}
+
+file: "FILE" {
+  class: node
+  direction: down
+  allowed: "value ∈ files_allowed\n(resume PDFs)?" {class: q}
+  no: "refused" {class: bad}
+  pick: "pick input[type=file], skipping 'autofill' ones:\n1 own id/name/aria-label contains label word\n2 text near it contains label word\n3 the only one left" {class: node}
+  none: "not_found" {class: bad}
+  set: "setInputFiles(path) · wait 0.8 s\nfilename visible? → 'attached'" {class: ok}
+  allowed -> no: no {class: red}
+  allowed -> pick: yes
+  pick -> none: "nothing matched" {class: red}
+  pick -> set: found
+}
+
+radio: "RADIO" {
+  class: node
+  direction: down
+  grp: "radiogroup / group named = label?" {class: q}
+  opt: "pick option: exact › prefix › shortest contains\n(submit-like names excluded)" {class: node}
+  chk: "check() → ok" {class: ok}
+  noopt: "no_option + list of radios" {class: bad}
+  one: "exactly ONE radio on the page\nnamed = value?" {class: q}
+  nf: "not_found" {class: bad}
+  grp -> opt: yes
+  opt -> chk: hit
+  opt -> noopt: miss {class: red}
+  grp -> one: no
+  one -> chk: yes
+  one -> nf: "no (e.g. many 'Yes')" {class: red}
+}
+
+other: "TEXT · COMBOBOX · SELECT · CHECKBOX" {
+  class: node
+  direction: down
+  find: "find(label), first visible of:\ngetByLabel exact → getByRole exact\n→ getByRole → getByLabel" {class: node}
+  nf: "not_found" {class: bad}
+  k2: "kind?" {class: q}
+  isel: "native <select>?" {class: q}
+  sel: "selectOption(best option)" {class: ok}
+  real: "INPUT or role=combobox/listbox?" {class: q}
+  notcb: "refused — not a combobox\n(a button is never clicked)" {class: bad}
+  cb: "click → type value / first word / nothing\n→ read options → pick exact › prefix › shortest contains\n→ click that option" {class: ok}
+  esc: "Escape → no_option + first 20 options" {class: bad}
+  txt: "TEXT → fill(value)\n(role=combobox → combobox path)" {class: ok}
+  box: "CHECKBOX → setChecked(value ≠ no/false/0)" {class: ok}
+  find -> nf: none {class: red}
+  find -> k2: found
+  k2 -> isel: "combobox / select"
+  isel -> sel: yes
+  isel -> real: no
+  real -> notcb: no {class: red}
+  real -> cb: yes
+  cb -> esc: "no match" {class: red}
+  k2 -> txt
+  k2 -> box
+}
+
+readback: "READ-BACK every ok text field\nvalue still there? (phones: compare last 10 digits)" {class: q}
+lost: "status = lost\n'value did not stick — refill it'" {class: bad}
+out: "stdout {ok, results[]} · process.exit(0)\ntab stays open for you" {class: py}
+
+start -> connect -> tab
+tab -> notab: none {class: red}
+tab -> front: found
+front -> each
+each -> settle: "previous was an upload"
+settle -> sub
+each -> sub
+sub -> refused1: yes {class: red}
+sub -> kind: no
+kind -> file.allowed: file
+kind -> radio.grp: radio
+kind -> other.find: "text · combobox · select · checkbox"
+file.set -> each: next {style.stroke-dash: 3}
+radio.chk -> each: next {style.stroke-dash: 3}
+other.txt -> each: next {style.stroke-dash: 3}
+each -> readback: "all done"
+readback -> lost: no {class: red}
+readback -> out: yes
+lost -> out

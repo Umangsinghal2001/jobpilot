@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "JobPilot",
+  "version": "1.2",
+  "description": "Moves finished forms into your review window, and shows each application's tailored resume against your base resume in the side panel, where you can also edit the agent's prompts. Never touches the pages themselves.",
+  "permissions": ["tabs", "sidePanel"],
+  "host_permissions": ["http://localhost:8765/*"],
+  "background": { "service_worker": "sw.js" },
+  "action": { "default_title": "JobPilot: resume for this application" },
+  "side_panel": { "default_path": "panel.html" }
+}

@@ -1,0 +1,30 @@
+# The pool: more work, written as resume bullets, that a tailored version may pick from per job.
+# Wording may change to match the posting; facts and numbers may not. `note` is for the agent only, never printed.
+# `extends` names the base-resume project a pool project adds to; projects without it are new projects.
+# `status`: production (shipped and used), prototype (built, not in production) or design (written, not built).
+
+projects:
+
+  - id: triage
+    extends: Support Triage Agent
+    name: Support Triage Agent
+    status: production
+    bullets:
+      - id: triage.routing
+        tags: [agents, routing, cost]
+        text: >-
+          Sent easy tickets to a small model and hard ones to a large one, which cut model spend by 55% with no drop
+          in the eval score.
+      - id: triage.tracing
+        tags: [observability, OpenTelemetry]
+        text: Traced every model and tool call with OpenTelemetry, so a bad reply can be replayed step by step.
+
+  - id: sqlbot
+    name: Text-to-SQL prototype for the analytics team
+    status: prototype
+    bullets:
+      - id: sqlbot.schema
+        tags: [Text2SQL, LLM, Postgres]
+        text: >-
+          Built a prototype that answers analytics questions in plain English by writing read-only SQL, checked
+          against 50 questions with known answers.

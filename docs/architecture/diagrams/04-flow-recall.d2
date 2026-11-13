@@ -1,0 +1,43 @@
+# verified: 2026-10-03 · covers: [apply_agent.py: apply, close_stale_tabs, _system · memory.py: load, prompt_section]
+...@_style
+
+title: |md
+  # 4 · Flow 1 — Recall: memory into the agent, before it starts
+  entry: `apply_agent.py:348 apply(job)`
+| {near: top-center}
+
+seq: "" {
+  shape: sequence_diagram
+  h: "fill.py / eval /\napply_agent.py <id>" {class: py}
+  a: "apply(job)" {class: py}
+  c: "Agent Chrome\n:9222" {class: ext}
+  g: "Guard" {class: guard}
+  m: "memory.py" {class: py}
+  f: "memory.json" {class: data}
+  q: "Claude CLI\n(Opus)" {class: agent}
+
+  h -> a: "apply(job)"
+
+  stale: "close_stale_tabs(job.url)" {
+    a -> c: "GET /json/list"
+    c -> a: "all targets"
+    a -> c: "GET /json/close/{id}\nfor every page whose host+path starts with job.url"
+    a."a re-run supersedes the old tab →\nfill_fields can only match the new one"
+  }
+
+  setup: "per-job setup" {
+    a -> a: "resume_options(): track → resumes/<track>.pdf\n(missing → master PDF from profile.md)"
+    a -> g: "Guard(job_id, url, uploads = those PDFs)"
+  }
+
+  build: "build the system prompt — _system(job, shot, resumes)" {
+    a -> m: "prompt_section()"
+    m -> f: "load()"
+    f -> m: "{answers, platforms}\nmissing / corrupt → seeds only, no answers"
+    m -> m: "rank questions by total companies\nkeep top 120 · ≤3 variants each"
+    m -> a: "# Memory from past applications\nanswer bank + platform notes"
+  }
+
+  a -> q: "query(system = playbook + profile + resume.md\n+ standard answers + MEMORY SECTION)"
+  q."prompt step 4 = FAST PATH:\none fill_fields call per page\nvalues from the answer bank"
+}

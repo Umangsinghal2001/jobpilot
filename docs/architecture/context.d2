@@ -1,0 +1,41 @@
+# verified: 2026-10-03 (no git — drift = any covered file newer than this doc)
+# covers: [memory.py, memory.json, quickfill/quickfill.mjs, apply_agent.py]
+#
+# C4 L1 — the MEMORY LAYER in its context: who touches it, what it touches.
+# Render: d2 --layout=tala context.d2 /tmp/context.svg
+
+vars: {d2-config: {layout-engine: tala; theme-id: 0; pad: 30}}
+classes: {
+  person: {shape: person; style: {fill: "#def7ec"; stroke: "#0e9f6e"; font-color: "#014737"}}
+  system: {style: {fill: "#f1e8ff"; stroke: "#7e3af2"; stroke-width: 3; font-color: "#3b0f86"; border-radius: 8}}
+  ext: {style: {fill: "#f3f4f6"; stroke: "#6b7280"; font-color: "#1f2937"; border-radius: 8}}
+  data: {shape: cylinder; style: {fill: "#fdf6b2"; stroke: "#c27803"; font-color: "#633112"}}
+}
+direction: right
+
+title: |md
+  # L1 · Context — the memory layer of JobPilot
+  It lets each application reuse what earlier applications learned: **answers** and **platform know-how**.  
+| {near: top-center}
+
+you: "You\n(candidate)" {class: person}
+
+jobpilot: |md
+  ## JobPilot ApplyAgent
+  fills one job application per run in a real browser,  
+  **stops before Submit**  
+  **memory layer** (this blueprint)  
+  - recalls past answers + platform notes → prompt
+  - fills a whole page in ONE tool call (`fill_fields`)
+  - learns from each filled run
+| {class: system}
+
+memory: "memory.json\nanswers · platform lessons" {class: data}
+claude: "Anthropic API\nClaude Opus" {class: ext}
+ats: "ATS web forms\nGreenhouse · Ashby · Lever · Workday …" {class: ext}
+
+you -> memory: "reads / edits by hand\n(fix a wrong answer once)"
+you -> ats: "reviews the filled tab,\nclicks Submit"
+jobpilot -> memory: "recall before · learn after"
+jobpilot -> claude: "agent turns"
+jobpilot -> ats: "fills forms (never submits)"
