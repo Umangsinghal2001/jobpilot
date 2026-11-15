@@ -11,7 +11,7 @@ Needs the agent browser: ./browser.sh start (log in once to LinkedIn/Wellfound/G
 Nothing is ever submitted — a deterministic guard blocks every Submit-style action.
 
     python3 fill.py                  # every job still in status 'new'
-    python3 fill.py --job gitlab     # filter by company / title / id substring
+    python3 fill.py --job acme       # filter by company / title / id substring
     python3 fill.py --limit 5
     python3 fill.py --redo           # also re-run form-ready / needs-you jobs
     python3 fill.py --status needs-you
